@@ -1,0 +1,19 @@
+[package]
+name = "game-magnate"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { version = "0.8", features = ["dynamic"] }
+bevy_asset_loader = "0.12"
+
+
+# From https://bevyengine.org/learn/book/getting-started/setup/#compile-with-performance-optimizations
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3
