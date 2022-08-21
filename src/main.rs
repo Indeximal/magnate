@@ -1,9 +1,11 @@
 use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_asset_loader::prelude::*;
+use tilemap::{spawn_triangle, TriangleOrientation, VertexCoord};
 
 pub const BG_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 pub const ASPECT_RATIO: f32 = 16.0 / 9.0;
-pub const SQRT3_HALF: f32 = 0.866025404;
+
+mod tilemap;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum GameState {
@@ -15,6 +17,7 @@ enum GameState {
 struct SpriteAssets {
     #[asset(path = "triangle.png")]
     triangle: Handle<Image>,
+    sth: Handle<Mesh>,
 }
 
 fn main() {
@@ -37,15 +40,15 @@ fn main() {
         .add_state(GameState::AssetLoading)
         .add_plugins(DefaultPlugins)
         .add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_camera))
-        .add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_triangle))
+        .add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_triangles))
         .run();
 }
 
-/// Spawn a 2d camera with a heigth of 100 units, and auto width
+/// Spawn a 2d camera with a heigth of 15 units, and auto width
 fn spawn_camera(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle {
         projection: OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(100.),
+            scaling_mode: ScalingMode::FixedVertical(15.),
             ..Default::default()
         },
         ..Default::default()
@@ -53,13 +56,21 @@ fn spawn_camera(mut commands: Commands) {
 }
 
 /// Spawn a sprite with a triangle image
-fn spawn_triangle(mut commands: Commands, assets: Res<SpriteAssets>) {
-    commands.spawn_bundle(SpriteBundle {
-        texture: assets.triangle.clone(),
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(1., SQRT3_HALF) * 50.),
-            ..Default::default()
-        },
-        ..Default::default()
-    });
+fn spawn_triangles(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    spawn_triangle(
+        &mut commands,
+        (VertexCoord::new(0, 0, 0), TriangleOrientation::PointingUp),
+        &mut meshes,
+        &mut materials,
+    );
+    spawn_triangle(
+        &mut commands,
+        (VertexCoord::new(0, 0, 0), TriangleOrientation::PointingDown),
+        &mut meshes,
+        &mut materials,
+    );
 }
