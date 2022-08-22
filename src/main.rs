@@ -47,12 +47,12 @@ fn main() {
         .run();
 }
 
-/// Spawn a 2d camera with a heigth of 15 units, and auto width
+/// Spawn a 2d camera with a fix heigth  in triangle units, and auto width
 fn spawn_camera(mut commands: Commands) {
     commands
         .spawn_bundle(Camera2dBundle {
             projection: OrthographicProjection {
-                scaling_mode: ScalingMode::FixedVertical(15.),
+                scaling_mode: ScalingMode::FixedVertical(10.),
                 ..Default::default()
             },
             ..Default::default()

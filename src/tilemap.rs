@@ -11,9 +11,11 @@ pub type FaceCoord = (VertexCoord, TriangleOrientation);
 
 pub const SQRT3_HALF: f32 = 0.866025404;
 
-const X_DIR: Vec2 = Vec2::ONE;
+const X_DIR: Vec2 = Vec2::X;
 const Y_DIR: Vec2 = Vec2::new(0.5, SQRT3_HALF);
 const W_DIR: Vec2 = Vec2::new(-0.5, SQRT3_HALF);
+
+const SELECTABLE_RADIUS: f32 = 0.4;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TriangleOrientation {
@@ -106,7 +108,26 @@ pub fn spawn_triangle(
             material: materials.add(ColorMaterial::from(Color::NAVY)),
             ..default()
         })
-        .insert(Selectable::new(0.4));
+        .with_children(|builder| {
+            builder
+                .spawn_bundle(TransformBundle::from_transform(Transform::default()))
+                .insert(Selectable::new(SELECTABLE_RADIUS));
+            builder
+                .spawn_bundle(TransformBundle::from_transform(
+                    Transform::from_translation(X_DIR.extend(0.)),
+                ))
+                .insert(Selectable::new(SELECTABLE_RADIUS));
+            builder
+                .spawn_bundle(TransformBundle::from_transform(match coord.1 {
+                    TriangleOrientation::PointingUp => {
+                        Transform::from_translation(Y_DIR.extend(0.))
+                    }
+                    TriangleOrientation::PointingDown => {
+                        Transform::from_translation(-W_DIR.extend(0.))
+                    }
+                }))
+                .insert(Selectable::new(SELECTABLE_RADIUS));
+        });
 }
 
 #[test]

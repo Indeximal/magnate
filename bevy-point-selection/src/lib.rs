@@ -14,6 +14,9 @@ impl Plugin for PointSelectionPlugin {
 #[derive(Component)]
 pub struct SelectionSource;
 
+/// Use with a `Changed<Selectable>` filter to skip unchanged Selectables.
+/// Somewhat analogous to bevy_ui Interactible
+///
 /// todo: add other colliders, custom offset?
 #[derive(Component)]
 pub struct Selectable {
@@ -31,11 +34,12 @@ impl Selectable {
     }
 }
 
+/// This system updates Selectable components based on the cursor position
 fn selection_system(
     mut cursor_events: EventReader<CursorMoved>,
     windows: Res<Windows>,
     sources: Query<(&Camera, &GlobalTransform), With<SelectionSource>>,
-    mut sinks: Query<(Entity, &mut Selectable, &GlobalTransform)>,
+    mut sinks: Query<(&mut Selectable, &GlobalTransform)>,
 ) {
     let (window_id, cursor_pos) = match cursor_events.iter().last() {
         Some(evt) => (evt.id, evt.position),
@@ -59,34 +63,20 @@ fn selection_system(
             .transform_point3(cursor_position_ndc.extend(1.0))
             .truncate();
 
-        // The intention behind those vectors is to only dereference the `Selectable` if anything changes,
-        // so that the Changed<> filter can be used.
-        let mut selected: Vec<Entity> = Vec::new();
-        let mut deselected: Vec<Entity> = Vec::new();
-        for (id, selectable, transform) in sinks.iter() {
+        // Calculationg the distance and checking for overlap does not trigger change detection
+        for (mut selectable, transform) in sinks.iter_mut() {
             let dist = transform
                 .translation()
                 .truncate()
                 .distance_squared(cursor_position);
             let radius_sq = selectable.selection_radius * selectable.selection_radius;
             if dist <= radius_sq && !selectable.is_selected {
-                selected.push(id);
+                // this triggers change detection
+                selectable.as_mut().is_selected = true;
             }
             if dist > radius_sq && selectable.is_selected {
-                deselected.push(id);
-            }
-        }
-
-        for id in selected {
-            if let Ok(mut s) = sinks.get_component_mut::<Selectable>(id) {
-                info!("selected");
-                s.is_selected = true;
-            }
-        }
-        for id in deselected {
-            if let Ok(mut s) = sinks.get_component_mut::<Selectable>(id) {
-                info!("deselected");
-                s.is_selected = false;
+                // this triggers change detection
+                selectable.as_mut().is_selected = false;
             }
         }
     };
