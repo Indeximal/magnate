@@ -1,5 +1,6 @@
 use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_asset_loader::prelude::*;
+use bevy_point_selection::{PointSelectionPlugin, Selectable, SelectionSource};
 use tilemap::{spawn_triangle, TriangleOrientation, VertexCoord};
 
 pub const BG_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
@@ -39,20 +40,24 @@ fn main() {
         )
         .add_state(GameState::AssetLoading)
         .add_plugins(DefaultPlugins)
+        .add_plugin(PointSelectionPlugin)
         .add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_camera))
         .add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_triangles))
+        .add_system(foo)
         .run();
 }
 
 /// Spawn a 2d camera with a heigth of 15 units, and auto width
 fn spawn_camera(mut commands: Commands) {
-    commands.spawn_bundle(Camera2dBundle {
-        projection: OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(15.),
+    commands
+        .spawn_bundle(Camera2dBundle {
+            projection: OrthographicProjection {
+                scaling_mode: ScalingMode::FixedVertical(15.),
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    });
+        })
+        .insert(SelectionSource);
 }
 
 /// Spawn a sprite with a triangle image
@@ -73,4 +78,10 @@ fn spawn_triangles(
         &mut meshes,
         &mut materials,
     );
+}
+
+fn foo(triggers: Query<&Selectable, Changed<Selectable>>) {
+    for x in triggers.iter() {
+        info!("changed {}", x.is_selected);
+    }
 }

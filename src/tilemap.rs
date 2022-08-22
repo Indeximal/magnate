@@ -5,6 +5,7 @@ use bevy::{
 };
 
 pub use bevy::prelude::IVec3 as VertexCoord;
+use bevy_point_selection::Selectable;
 /// Describes the left vertex and whether the triangle points up or down
 pub type FaceCoord = (VertexCoord, TriangleOrientation);
 
@@ -98,12 +99,14 @@ pub fn spawn_triangle(
 ) {
     // Todo: optimize, don't create a mesh every time?
     // see https://github.com/NiklasEi/bevy_asset_loader/blob/main/bevy_asset_loader/examples/custom_dynamic_assets.rs
-    commands.spawn_bundle(MaterialMesh2dBundle {
-        mesh: meshes.add(create_triangle(1., coord.1)).into(),
-        transform: coord.to_world_pos(),
-        material: materials.add(ColorMaterial::from(Color::NAVY)),
-        ..default()
-    });
+    commands
+        .spawn_bundle(MaterialMesh2dBundle {
+            mesh: meshes.add(create_triangle(1., coord.1)).into(),
+            transform: coord.to_world_pos(),
+            material: materials.add(ColorMaterial::from(Color::NAVY)),
+            ..default()
+        })
+        .insert(Selectable::new(0.4));
 }
 
 #[test]
