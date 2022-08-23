@@ -1,24 +1,25 @@
 use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_asset_loader::prelude::*;
-use bevy_point_selection::{PointSelectionPlugin, Selectable, SelectionSource};
+use bevy_point_selection::{PointSelectionPlugin, SelectionSource};
+use rotation::TriangleRotationPlugin;
 use tilemap::{spawn_triangle, TriangleOrientation, VertexCoord};
 
 pub const BG_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 pub const ASPECT_RATIO: f32 = 16.0 / 9.0;
 
+mod rotation;
 mod tilemap;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
-enum GameState {
+pub enum GameState {
     AssetLoading,
     Next,
 }
 
 #[derive(AssetCollection)]
 struct SpriteAssets {
-    #[asset(path = "triangle.png")]
-    triangle: Handle<Image>,
-    sth: Handle<Mesh>,
+    #[asset(path = "circle.png")]
+    circle: Handle<Image>,
 }
 
 fn main() {
@@ -41,9 +42,12 @@ fn main() {
         .add_state(GameState::AssetLoading)
         .add_plugins(DefaultPlugins)
         .add_plugin(PointSelectionPlugin)
-        .add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_camera))
-        .add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_triangles))
-        .add_system(foo)
+        .add_plugin(TriangleRotationPlugin)
+        .add_system_set(
+            SystemSet::on_enter(GameState::Next)
+                .with_system(spawn_camera)
+                .with_system(spawn_triangles),
+        )
         .run();
 }
 
@@ -78,10 +82,4 @@ fn spawn_triangles(
         &mut meshes,
         &mut materials,
     );
-}
-
-fn foo(triggers: Query<&Selectable, Changed<Selectable>>) {
-    for x in triggers.iter() {
-        info!("changed {}", x.is_selected);
-    }
 }

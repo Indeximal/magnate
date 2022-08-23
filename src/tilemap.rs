@@ -15,12 +15,24 @@ const X_DIR: Vec2 = Vec2::X;
 const Y_DIR: Vec2 = Vec2::new(0.5, SQRT3_HALF);
 const W_DIR: Vec2 = Vec2::new(-0.5, SQRT3_HALF);
 
-const SELECTABLE_RADIUS: f32 = 0.4;
+const SELECTABLE_RADIUS: f32 = 0.25;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TriangleOrientation {
     PointingUp,
     PointingDown,
+}
+
+/// Required because it is needed for the Component
+impl Default for TriangleOrientation {
+    fn default() -> Self {
+        TriangleOrientation::PointingUp
+    }
+}
+
+#[derive(Component, Default, Debug, Clone)]
+pub struct TriangleTile {
+    pub position: FaceCoord,
 }
 
 // /// inspired by https://docs.rs/bevy_ecs_tilemap/latest/bevy_ecs_tilemap/tiles/struct.TileStorage.html
@@ -108,6 +120,7 @@ pub fn spawn_triangle(
             material: materials.add(ColorMaterial::from(Color::NAVY)),
             ..default()
         })
+        .insert(TriangleTile { position: coord })
         .with_children(|builder| {
             builder
                 .spawn_bundle(TransformBundle::from_transform(Transform::default()))
