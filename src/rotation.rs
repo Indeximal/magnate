@@ -1,7 +1,13 @@
 use bevy::prelude::*;
 use bevy_point_selection::SelectionIndicator;
 
-use crate::{tilemap::TriangleTile, GameState, SpriteAssets};
+use crate::{
+    tilemap::{
+        FaceCoord, FromWorldPosition, PositionInWorld, RotateAroundVertex, TriangleTile,
+        VertexCoord,
+    },
+    GameState, SpriteAssets,
+};
 
 pub struct TriangleRotationPlugin;
 
@@ -31,21 +37,41 @@ fn spawn_selector(mut commands: Commands, assets: Res<SpriteAssets>) {
 }
 
 fn rotation_system(
-    triggers: Query<&Parent>,
-    triangles: Query<&TriangleTile>,
+    mousebtn: Res<Input<MouseButton>>,
     indicator: Query<&SelectionIndicator>,
+    triggers: Query<(&Parent, &GlobalTransform)>,
+    mut triangles: Query<(&mut Transform, &mut TriangleTile)>,
 ) {
+    if !mousebtn.any_just_pressed([MouseButton::Left, MouseButton::Right]) {
+        return;
+    }
+
     let indicator = indicator
         .get_single()
         .expect("Indicator hasn't been spawned yet!");
 
-    let selected_triangles_iter = indicator
+    let selected_triggers_iter = indicator
         .selected_triggers
         .iter()
-        .flat_map(|eid| triggers.get(*eid))
-        .flat_map(|par| triangles.get(par.get()));
+        .flat_map(|eid| triggers.get(*eid));
 
-    for tri in selected_triangles_iter {
-        info!("{:?}", tri.position);
+    for (par, pos) in selected_triggers_iter {
+        // This way I don't have to update another coordinate in the triangle vertices.
+        let anchor: VertexCoord = FromWorldPosition::from_world_pos(pos.translation().truncate());
+
+        if let Ok((mut transf, mut coord)) = triangles.get_mut(par.get()) {
+            let new_vertex: FaceCoord = if mousebtn.just_pressed(MouseButton::Left) {
+                // Counter clockwise
+                coord.position.rotate_counter_clockwise(anchor)
+            } else if mousebtn.just_pressed(MouseButton::Right) {
+                // Clockwise
+                coord.position.rotate_clockwise(anchor)
+            } else {
+                // Do nothing
+                coord.position
+            };
+            coord.position = new_vertex;
+            *transf = new_vertex.to_world_pos(transf.translation.z);
+        }
     }
 }

@@ -1,6 +1,6 @@
 //! Inspired by https://github.com/Anshorei/bevy_rei/tree/master/bevy_interact_2d
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::RenderTarget};
 
 pub struct PointSelectionPlugin;
 
@@ -54,25 +54,27 @@ impl SelectionIndicator {
 }
 
 /// This system updates Selectable components based on the cursor position
+/// Todo: use ChangeTrackers<GlobalTransform> to update less often, but this doesn't
+/// change asymtotic complextity, thus probably is more overhead.
 fn selection_system(
-    mut cursor_events: EventReader<CursorMoved>,
     windows: Res<Windows>,
     sources: Query<(&Camera, &GlobalTransform), With<SelectionSource>>,
     mut sinks: Query<(&mut Selectable, &GlobalTransform)>,
 ) {
-    let (window_id, cursor_pos) = match cursor_events.iter().last() {
-        Some(evt) => (evt.id, evt.position),
-        None => return,
-    };
-
-    let window = match windows.get(window_id) {
-        Some(window) => window,
-        None => return,
-    };
-
-    // todo: skip if camera is not displayed on the window?
-    // See bevy_ui `ui_focus_system`
-    if let Ok((camera, global_transform)) = sources.get_single() {
+    for (camera, global_transform) in sources.iter() {
+        // todo: rewrite with iter functions or let else
+        let window = match camera.target {
+            RenderTarget::Window(id) => match windows.get(id) {
+                Some(window) => window,
+                None => continue,
+            },
+            _ => continue,
+        };
+        let cursor_pos = match window.cursor_position() {
+            Some(pos) => pos,
+            None => continue,
+        };
+        // view to world
         let projection_matrix = camera.projection_matrix();
         let screen_size = Vec2::from([window.width() as f32, window.height() as f32]);
         let cursor_position_ndc = (cursor_pos / screen_size) * 2.0 - Vec2::from([1.0, 1.0]);
@@ -98,7 +100,7 @@ fn selection_system(
                 selectable.as_mut().is_selected = false;
             }
         }
-    };
+    }
 }
 
 /// This system updates the vector of selected [`Selectable`]. It also sets the visibility of the indicator

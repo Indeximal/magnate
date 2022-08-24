@@ -88,4 +88,10 @@ fn spawn_triangles(
         &mut meshes,
         &mut materials,
     );
+    spawn_triangle(
+        &mut commands,
+        (VertexCoord::new(2, -1), TriangleOrientation::PointingDown),
+        &mut meshes,
+        &mut materials,
+    );
 }

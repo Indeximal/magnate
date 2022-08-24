@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
@@ -8,6 +10,7 @@ use bevy_point_selection::Selectable;
 /// Coordate of the verticies of the triangle grid. X is viewport towards right and Y is towards upper right.
 pub use bevy::prelude::IVec2 as VertexCoord;
 /// Describes the left vertex and whether the triangle points up or down.
+/// If it is pointing down, the mesh is rotated a sixth turn clockwise.
 pub type FaceCoord = (VertexCoord, TriangleOrientation);
 
 pub const SQRT3_HALF: f32 = 0.866025404;
@@ -18,7 +21,6 @@ const SELECTABLE_RADIUS: f32 = 0.25 * TRIANGLE_SIDE;
 
 const X_DIR: Vec2 = Vec2::new(TRIANGLE_SIDE, 0.);
 const Y_DIR: Vec2 = Vec2::new(0.5 * TRIANGLE_SIDE, SQRT3_HALF * TRIANGLE_SIDE);
-const W_DIR: Vec2 = Vec2::new(-0.5 * TRIANGLE_SIDE, SQRT3_HALF * TRIANGLE_SIDE);
 const ISO_TO_ORTHO: Mat2 = Mat2::from_cols(X_DIR, Y_DIR);
 
 // there is no IMat :(
@@ -42,7 +44,7 @@ pub struct TriangleTile {
     pub position: FaceCoord,
 }
 
-trait PositionInWorld {
+pub trait PositionInWorld {
     fn to_world_pos(&self, z: f32) -> Transform;
 }
 
@@ -58,11 +60,25 @@ impl PositionInWorld for VertexCoord {
 
 impl PositionInWorld for FaceCoord {
     fn to_world_pos(&self, z: f32) -> Transform {
-        self.0.to_world_pos(z)
+        self.0.to_world_pos(z).with_rotation(match self.1 {
+            TriangleOrientation::PointingUp => Quat::default(),
+            TriangleOrientation::PointingDown => Quat::from_rotation_z(-PI / 3.),
+        })
     }
 }
 
-trait RotateAroundVertex {
+pub trait FromWorldPosition {
+    fn from_world_pos(pos: Vec2) -> Self;
+}
+
+impl FromWorldPosition for VertexCoord {
+    fn from_world_pos(pos: Vec2) -> Self {
+        let xy = ISO_TO_ORTHO.inverse() * pos;
+        xy.round().as_ivec2()
+    }
+}
+
+pub trait RotateAroundVertex {
     fn rotate_clockwise(&self, anchor: VertexCoord) -> Self;
     fn rotate_counter_clockwise(&self, anchor: VertexCoord) -> Self;
 }
@@ -71,7 +87,7 @@ impl RotateAroundVertex for FaceCoord {
     fn rotate_clockwise(&self, anchor: VertexCoord) -> Self {
         let d = self.0 - anchor;
         let r = ISO_LEFT_ROT * d.as_vec2();
-        let p = anchor + r.as_ivec2();
+        let p = anchor + r.round().as_ivec2();
 
         match self.1 {
             TriangleOrientation::PointingUp => (p, TriangleOrientation::PointingDown),
@@ -84,7 +100,7 @@ impl RotateAroundVertex for FaceCoord {
     fn rotate_counter_clockwise(&self, anchor: VertexCoord) -> Self {
         let d = self.0 - anchor;
         let r = ISO_LEFT_ROT.inverse() * d.as_vec2();
-        let p = anchor + r.as_ivec2();
+        let p = anchor + r.round().as_ivec2();
 
         match self.1 {
             TriangleOrientation::PointingUp => (
@@ -97,25 +113,19 @@ impl RotateAroundVertex for FaceCoord {
 }
 
 /// create a new mesh for a triangle
-pub fn create_triangle(size: f32, orientation: TriangleOrientation) -> Mesh {
+pub fn create_triangle(size: f32) -> Mesh {
     // pos  , normal  , uv
     // x y z, nx ny nz, u v
     let vertices = [
         ([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.0]),
         ([size, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0]),
         (
-            match orientation {
-                TriangleOrientation::PointingUp => [size / 2., size * SQRT3_HALF, 0.0],
-                TriangleOrientation::PointingDown => [size / 2., -size * SQRT3_HALF, 0.0],
-            },
+            [size / 2., size * SQRT3_HALF, 0.0],
             [0.0, 0.0, 1.0],
             [1.0, 0.5],
         ),
     ];
-    let indices = match orientation {
-        TriangleOrientation::PointingUp => Indices::U32(vec![0, 1, 2]),
-        TriangleOrientation::PointingDown => Indices::U32(vec![0, 2, 1]),
-    };
+    let indices = Indices::U32(vec![0, 1, 2]);
 
     let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
     let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
@@ -139,7 +149,7 @@ pub fn spawn_triangle(
     // see https://github.com/NiklasEi/bevy_asset_loader/blob/main/bevy_asset_loader/examples/custom_dynamic_assets.rs
     commands
         .spawn_bundle(MaterialMesh2dBundle {
-            mesh: meshes.add(create_triangle(TRIANGLE_SIDE, coord.1)).into(),
+            mesh: meshes.add(create_triangle(TRIANGLE_SIDE)).into(),
             transform: coord.to_world_pos(TRIANGLE_Z),
             material: materials.add(ColorMaterial::from(Color::NAVY)),
             ..default()
@@ -155,14 +165,9 @@ pub fn spawn_triangle(
                 ))
                 .insert(Selectable::new(SELECTABLE_RADIUS));
             builder
-                .spawn_bundle(TransformBundle::from_transform(match coord.1 {
-                    TriangleOrientation::PointingUp => {
-                        Transform::from_translation(Y_DIR.extend(0.))
-                    }
-                    TriangleOrientation::PointingDown => {
-                        Transform::from_translation(-W_DIR.extend(0.))
-                    }
-                }))
+                .spawn_bundle(TransformBundle::from_transform(
+                    Transform::from_translation(Y_DIR.extend(0.)),
+                ))
                 .insert(Selectable::new(SELECTABLE_RADIUS));
         });
 }
