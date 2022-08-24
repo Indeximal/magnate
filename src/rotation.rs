@@ -9,12 +9,24 @@ use crate::{
     GameState, SpriteAssets,
 };
 
+#[derive(Component, Default)]
+struct SelectedTrianglesState {
+    /// The entity ids of all currently selected [`TriangleTile`]
+    pub selected_set: HashSet<Entity>,
+    /// The coordinate of the rotation point if it exists, otherwise undefined
+    pub anchor: VertexCoord,
+}
+
 pub struct TriangleRotationPlugin;
 
 impl Plugin for TriangleRotationPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_selector))
-            .add_system_set(SystemSet::on_update(GameState::Next).with_system(rotation_system));
+            .add_system_set(
+                SystemSet::on_update(GameState::Next)
+                    .with_system(triangle_selection_system)
+                    .with_system(rotation_system.after(triangle_selection_system)),
+            );
     }
 }
 
@@ -33,23 +45,24 @@ fn spawn_selector(mut commands: Commands, assets: Res<SpriteAssets>) {
             ..Default::default()
         })
         .insert(SelectionIndicator::new())
+        .insert(SelectedTrianglesState::default())
         .insert(Name::new("Triangle Selector"));
 }
 
-fn rotation_system(
-    mouse_btn: Res<Input<MouseButton>>,
-    indicator: Query<&SelectionIndicator>,
+/// This system walkes the hierarchy if the vertex selection changed to pre calculate all the
+/// affected triangles.
+fn triangle_selection_system(
+    mut indicator: Query<
+        (&mut SelectedTrianglesState, &SelectionIndicator),
+        Changed<SelectionIndicator>,
+    >,
     parents: Query<(&Parent, &GlobalTransform)>,
     children: Query<&Children>,
-    mut triangles: Query<(&mut Transform, &mut TriangleTile)>,
 ) {
-    if !mouse_btn.any_just_pressed([MouseButton::Left, MouseButton::Right]) {
-        return;
-    }
-
-    let indicator = indicator
-        .get_single()
-        .expect("Indicator hasn't been spawned yet!");
+    let (mut selection_state, indicator) = match indicator.get_single_mut() {
+        Ok(x) => x,
+        Err(_) => return, // only update when the selection changed
+    };
 
     let selected_triggers: Vec<_> = indicator
         .selected_triggers
@@ -82,14 +95,32 @@ fn rotation_system(
         .cloned()
         .collect();
 
-    for eid in triangles_to_be_rotated {
-        if let Ok((mut transf, mut coord)) = triangles.get_mut(eid) {
+    selection_state.anchor = anchor;
+    selection_state.selected_set = triangles_to_be_rotated;
+}
+
+/// This system rotates selected triangles on mouse click
+fn rotation_system(
+    mouse_btn: Res<Input<MouseButton>>,
+    selection: Query<&SelectedTrianglesState>,
+    mut triangles: Query<(&mut Transform, &mut TriangleTile)>,
+) {
+    if !mouse_btn.any_just_pressed([MouseButton::Left, MouseButton::Right]) {
+        return;
+    }
+
+    let selection = selection
+        .get_single()
+        .expect("Indicator hasn't been spawned yet!");
+
+    for eid in selection.selected_set.iter() {
+        if let Ok((mut transf, mut coord)) = triangles.get_mut(*eid) {
             let new_vertex: FaceCoord = if mouse_btn.just_pressed(MouseButton::Left) {
                 // Counter clockwise
-                coord.position.rotate_counter_clockwise(anchor)
+                coord.position.rotate_counter_clockwise(selection.anchor)
             } else if mouse_btn.just_pressed(MouseButton::Right) {
                 // Clockwise
-                coord.position.rotate_clockwise(anchor)
+                coord.position.rotate_clockwise(selection.anchor)
             } else {
                 // Do nothing
                 coord.position
