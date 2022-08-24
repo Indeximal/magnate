@@ -1,6 +1,6 @@
 //! Inspired by https://github.com/Anshorei/bevy_rei/tree/master/bevy_interact_2d
 
-use bevy::{prelude::*, render::camera::RenderTarget};
+use bevy::{prelude::*, render::camera::RenderTarget, utils::HashSet};
 
 pub struct PointSelectionPlugin;
 
@@ -41,14 +41,14 @@ impl Selectable {
 /// take effect.
 #[derive(Component)]
 pub struct SelectionIndicator {
-    /// The entity ids of the currently selected [`Selectable`]
-    pub selected_triggers: Vec<Entity>,
+    /// The entity ids of all currently selected [`Selectable`]
+    pub selected_triggers: HashSet<Entity>,
 }
 
 impl SelectionIndicator {
     pub fn new() -> SelectionIndicator {
         SelectionIndicator {
-            selected_triggers: Vec::new(),
+            selected_triggers: HashSet::new(),
         }
     }
 }
@@ -103,8 +103,8 @@ fn selection_system(
     }
 }
 
-/// This system updates the vector of selected [`Selectable`]. It also sets the visibility of the indicator
-/// and if applicable its position as well. If multiple [`Selectable`] are selected the position is chooses
+/// This system updates the set of selected [`Selectable`]. It also sets the visibility of the indicator
+/// and if applicable its position as well. If multiple [`Selectable`] are selected the position is choosen
 /// arbitrary.
 fn update_selector(
     mut indicator: Query<(&mut Visibility, &mut Transform, &mut SelectionIndicator)>,
@@ -116,21 +116,19 @@ fn update_selector(
         Err(_) => return,
     };
 
-    // Early return if nothing changed, then the below Vector is empty iff
-    // all changes where because triggers were deselected.
-    if triggers.is_empty() {
-        return;
+    for (eid, trigger_transf, sel) in triggers.iter() {
+        if sel.is_selected {
+            // Just added
+            indic.selected_triggers.insert(eid);
+            transf.translation = trigger_transf.translation();
+        } else {
+            // Just removed
+            indic.selected_triggers.remove(&eid);
+        }
     }
 
-    let all_selected: Vec<_> = triggers
-        .iter()
-        .filter(|(_, _, sel)| sel.is_selected)
-        .collect();
-
-    visi.is_visible = !all_selected.is_empty();
-    indic.selected_triggers = all_selected.iter().map(|(e, _, _)| e).cloned().collect();
-    transf.translation = all_selected
-        .first()
-        .map(|(_, t, _)| t.translation())
-        .unwrap_or_default();
+    // only update when changed
+    if visi.is_visible != !indic.selected_triggers.is_empty() {
+        visi.is_visible = !indic.selected_triggers.is_empty();
+    }
 }
