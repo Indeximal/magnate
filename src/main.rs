@@ -70,28 +70,41 @@ fn spawn_triangles(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    spawn_triangle(
+    let tri1 = spawn_triangle(
         &mut commands,
         (VertexCoord::new(0, 0), TriangleOrientation::PointingUp),
         &mut meshes,
         &mut materials,
     );
-    spawn_triangle(
+    let tri2 = spawn_triangle(
         &mut commands,
         (VertexCoord::new(0, 0), TriangleOrientation::PointingDown),
         &mut meshes,
         &mut materials,
     );
-    spawn_triangle(
+    commands
+        .spawn_bundle(TransformBundle::default())
+        .insert_bundle(VisibilityBundle::default())
+        .add_child(tri1)
+        .add_child(tri2);
+    let tri3 = spawn_triangle(
         &mut commands,
         (VertexCoord::new(1, 1), TriangleOrientation::PointingUp),
         &mut meshes,
         &mut materials,
     );
-    spawn_triangle(
+    commands
+        .spawn_bundle(TransformBundle::default())
+        .insert_bundle(VisibilityBundle::default())
+        .add_child(tri3);
+    let tri4 = spawn_triangle(
         &mut commands,
         (VertexCoord::new(2, -1), TriangleOrientation::PointingDown),
         &mut meshes,
         &mut materials,
     );
+    commands
+        .spawn_bundle(TransformBundle::default())
+        .insert_bundle(VisibilityBundle::default())
+        .add_child(tri4);
 }

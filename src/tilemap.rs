@@ -144,7 +144,7 @@ pub fn spawn_triangle(
     coord: FaceCoord,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ColorMaterial>,
-) {
+) -> Entity {
     // Todo: optimize, don't create a mesh every time?
     // see https://github.com/NiklasEi/bevy_asset_loader/blob/main/bevy_asset_loader/examples/custom_dynamic_assets.rs
     commands
@@ -169,7 +169,8 @@ pub fn spawn_triangle(
                     Transform::from_translation(Y_DIR.extend(0.)),
                 ))
                 .insert(Selectable::new(SELECTABLE_RADIUS));
-        });
+        })
+        .id()
 }
 
 #[test]
