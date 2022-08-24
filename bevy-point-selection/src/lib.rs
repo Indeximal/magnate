@@ -6,7 +6,7 @@ pub struct PointSelectionPlugin;
 
 impl Plugin for PointSelectionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(selection_system);
+        app.add_system(selection_system).add_system(update_selector);
     }
 }
 
@@ -16,6 +16,8 @@ pub struct SelectionSource;
 
 /// Use with a `Changed<Selectable>` filter to skip unchanged Selectables.
 /// Somewhat analogous to bevy_ui Interactible
+///
+/// Entities must have a [`GlobalTransform`] components for the system to update `is_selected`.
 ///
 /// todo: add other colliders, custom offset?
 #[derive(Component)]
@@ -30,6 +32,23 @@ impl Selectable {
         Selectable {
             selection_radius: radius,
             is_selected: false,
+        }
+    }
+}
+
+/// Entities with this component will be moved to a selected [`Selectable`] or be set to invisible
+/// if none are selected. Entities must have a [`Transform`] and [`Visibility`] components for this to
+/// take effect.
+#[derive(Component)]
+pub struct SelectionIndicator {
+    /// The entity ids of the currently selected [`Selectable`]
+    pub selected_triggers: Vec<Entity>,
+}
+
+impl SelectionIndicator {
+    pub fn new() -> SelectionIndicator {
+        SelectionIndicator {
+            selected_triggers: Vec::new(),
         }
     }
 }
@@ -80,4 +99,36 @@ fn selection_system(
             }
         }
     };
+}
+
+/// This system updates the vector of selected [`Selectable`]. It also sets the visibility of the indicator
+/// and if applicable its position as well. If multiple [`Selectable`] are selected the position is chooses
+/// arbitrary.
+fn update_selector(
+    mut indicator: Query<(&mut Visibility, &mut Transform, &mut SelectionIndicator)>,
+    triggers: Query<(Entity, &GlobalTransform, &Selectable), Changed<Selectable>>,
+) {
+    // Early return if there is no indicator or it hasn't been spawned
+    let (mut visi, mut transf, mut indic) = match indicator.get_single_mut() {
+        Ok(x) => x,
+        Err(_) => return,
+    };
+
+    // Early return if nothing changed, then the below Vector is empty iff
+    // all changes where because triggers were deselected.
+    if triggers.is_empty() {
+        return;
+    }
+
+    let all_selected: Vec<_> = triggers
+        .iter()
+        .filter(|(_, _, sel)| sel.is_selected)
+        .collect();
+
+    visi.is_visible = !all_selected.is_empty();
+    indic.selected_triggers = all_selected.iter().map(|(e, _, _)| e).cloned().collect();
+    transf.translation = all_selected
+        .first()
+        .map(|(_, t, _)| t.translation())
+        .unwrap_or_default();
 }
