@@ -120,7 +120,10 @@ fn update_selector(
         if sel.is_selected {
             // Just added
             indic.selected_triggers.insert(eid);
-            transf.translation = trigger_transf.translation();
+            transf.translation = trigger_transf
+                .translation()
+                .truncate()
+                .extend(transf.translation.z);
         } else {
             // Just removed
             indic.selected_triggers.remove(&eid);

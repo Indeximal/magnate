@@ -1,10 +1,13 @@
-use bevy::{prelude::*, utils::HashSet};
+use bevy::{
+    prelude::*,
+    utils::{HashMap, HashSet},
+};
 use bevy_point_selection::SelectionIndicator;
 
 use crate::{
     tilemap::{
-        FaceCoord, FromWorldPosition, PositionInWorld, RotateAroundVertex, TriangleTile,
-        VertexCoord,
+        FaceCoord, FromWorldPosition, IterNeighbors, PositionInWorld, RotateAroundVertex,
+        TriangleTile, VertexCoord,
     },
     GameState, SpriteAssets,
 };
@@ -25,7 +28,8 @@ impl Plugin for TriangleRotationPlugin {
             .add_system_set(
                 SystemSet::on_update(GameState::Next)
                     .with_system(triangle_selection_system)
-                    .with_system(rotation_system.after(triangle_selection_system)),
+                    .with_system(rotation_system.after(triangle_selection_system))
+                    .with_system(merge_system),
             );
     }
 }
@@ -41,6 +45,7 @@ fn spawn_selector(mut commands: Commands, assets: Res<SpriteAssets>) {
                 color: Color::rgb_u8(87, 207, 255),
                 ..Default::default()
             },
+            transform: Transform::from_xyz(0., 0., 900.),
             visibility: Visibility { is_visible: false },
             ..Default::default()
         })
@@ -129,6 +134,7 @@ fn rotation_system(
         // delay updating until all collision have been checked
         update_set.push((eid, new_vertex));
 
+        // collision check
         for (other_id, _, other) in triangles.iter() {
             if !selection.selected_set.contains(&other_id) && new_vertex == other.position {
                 warn!("Something is in the way!");
@@ -142,6 +148,54 @@ fn rotation_system(
         if let Ok((_, mut transf, mut coord)) = triangles.get_mut(eid) {
             coord.position = new_vertex;
             *transf = new_vertex.to_world_pos(transf.translation.z);
+        }
+    }
+}
+
+// This system merges clumps of TriangleTiles that were just moved
+fn merge_system(
+    mut commands: Commands,
+    changed_triangles: Query<(Entity, &TriangleTile), Changed<TriangleTile>>,
+    all_triangles: Query<(Entity, &TriangleTile)>,
+    parents: Query<&Parent>,
+    children: Query<&Children>,
+) {
+    let all_changed: HashSet<Entity> = changed_triangles.iter().map(|(id, _)| id).collect();
+    if all_changed.is_empty() {
+        return;
+    }
+
+    // Also includes some of the changed triangles
+    let all_neighbors: HashMap<FaceCoord, Entity> = changed_triangles
+        .iter()
+        .flat_map(|(id, p)| p.position.iter_neighbors().zip(std::iter::repeat(id)))
+        .collect();
+
+    // Set of all clump pairs that have to be merged. First entry is the just changed one.
+    let mut merges: HashSet<(Entity, Entity)> = HashSet::new();
+
+    for (other, tile) in all_triangles.iter() {
+        if all_changed.contains(&other) {
+            // don't consider any changed triangles
+            continue;
+        }
+        if let Some(&tri) = all_neighbors.get(&tile.position) {
+            // tri and other are neighbors now, because tri moved here
+            let p1 = parents.get(tri).map(Parent::get);
+            let p2 = parents.get(other).map(Parent::get);
+            if let (Ok(p1), Ok(p2)) = (p1, p2) {
+                merges.insert((p1, p2));
+            }
+        }
+    }
+
+    // Apply merges
+    for (p1, p2) in merges {
+        if let Ok(new_tiles) = children.get(p2) {
+            // fixme: This breaks if two moved clumps try to claim the same tile
+            commands
+                .entity(p1)
+                .push_children(new_tiles.iter().as_slice());
         }
     }
 }
