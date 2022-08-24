@@ -71,7 +71,8 @@ fn triangle_selection_system(
         .collect();
 
     if selected_triggers.is_empty() {
-        // Nothing selected, so do nothing
+        // Nothing selected, clear the selection
+        selection_state.selected_set.clear();
         return;
     }
 
@@ -103,7 +104,7 @@ fn triangle_selection_system(
 fn rotation_system(
     mouse_btn: Res<Input<MouseButton>>,
     selection: Query<&SelectedTrianglesState>,
-    mut triangles: Query<(&mut Transform, &mut TriangleTile)>,
+    mut triangles: Query<(Entity, &mut Transform, &mut TriangleTile)>,
 ) {
     if !mouse_btn.any_just_pressed([MouseButton::Left, MouseButton::Right]) {
         return;
@@ -113,18 +114,32 @@ fn rotation_system(
         .get_single()
         .expect("Indicator hasn't been spawned yet!");
 
-    for eid in selection.selected_set.iter() {
-        if let Ok((mut transf, mut coord)) = triangles.get_mut(*eid) {
-            let new_vertex: FaceCoord = if mouse_btn.just_pressed(MouseButton::Left) {
-                // Counter clockwise
-                coord.position.rotate_counter_clockwise(selection.anchor)
-            } else if mouse_btn.just_pressed(MouseButton::Right) {
-                // Clockwise
-                coord.position.rotate_clockwise(selection.anchor)
-            } else {
-                // Do nothing
-                coord.position
-            };
+    let mut update_set: Vec<(Entity, FaceCoord)> = Vec::new();
+    for (eid, _, coord) in triangles.iter_many(selection.selected_set.iter()) {
+        let new_vertex: FaceCoord = if mouse_btn.just_pressed(MouseButton::Left) {
+            // Counter clockwise
+            coord.position.rotated_counter_clockwise(selection.anchor)
+        } else if mouse_btn.just_pressed(MouseButton::Right) {
+            // Clockwise
+            coord.position.rotated_clockwise(selection.anchor)
+        } else {
+            // Do nothing
+            coord.position
+        };
+        // delay updating until all collision have been checked
+        update_set.push((eid, new_vertex));
+
+        for (other_id, _, other) in triangles.iter() {
+            if !selection.selected_set.contains(&other_id) && new_vertex == other.position {
+                warn!("Something is in the way!");
+                return;
+            }
+        }
+    }
+
+    // Commit updates
+    for (eid, new_vertex) in update_set {
+        if let Ok((_, mut transf, mut coord)) = triangles.get_mut(eid) {
             coord.position = new_vertex;
             *transf = new_vertex.to_world_pos(transf.translation.z);
         }

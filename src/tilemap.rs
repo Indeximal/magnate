@@ -26,7 +26,7 @@ const ISO_TO_ORTHO: Mat2 = Mat2::from_cols(X_DIR, Y_DIR);
 // there is no IMat :(
 const ISO_LEFT_ROT: Mat2 = Mat2::from_cols(Vec2::new(1., -1.), Vec2::new(1., 0.));
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TriangleOrientation {
     PointingUp,
     PointingDown,
@@ -79,12 +79,12 @@ impl FromWorldPosition for VertexCoord {
 }
 
 pub trait RotateAroundVertex {
-    fn rotate_clockwise(&self, anchor: VertexCoord) -> Self;
-    fn rotate_counter_clockwise(&self, anchor: VertexCoord) -> Self;
+    fn rotated_clockwise(&self, anchor: VertexCoord) -> Self;
+    fn rotated_counter_clockwise(&self, anchor: VertexCoord) -> Self;
 }
 
 impl RotateAroundVertex for FaceCoord {
-    fn rotate_clockwise(&self, anchor: VertexCoord) -> Self {
+    fn rotated_clockwise(&self, anchor: VertexCoord) -> Self {
         let d = self.0 - anchor;
         let r = ISO_LEFT_ROT * d.as_vec2();
         let p = anchor + r.round().as_ivec2();
@@ -97,7 +97,7 @@ impl RotateAroundVertex for FaceCoord {
         }
     }
 
-    fn rotate_counter_clockwise(&self, anchor: VertexCoord) -> Self {
+    fn rotated_counter_clockwise(&self, anchor: VertexCoord) -> Self {
         let d = self.0 - anchor;
         let r = ISO_LEFT_ROT.inverse() * d.as_vec2();
         let p = anchor + r.round().as_ivec2();
@@ -177,17 +177,17 @@ pub fn spawn_triangle(
 fn test_rotation() {
     assert_eq!(
         (VertexCoord::new(0, 0), TriangleOrientation::PointingUp)
-            .rotate_clockwise(VertexCoord::ZERO),
+            .rotated_clockwise(VertexCoord::ZERO),
         (VertexCoord::new(0, 0), TriangleOrientation::PointingDown)
     );
     assert_eq!(
         (VertexCoord::new(0, 0), TriangleOrientation::PointingUp)
-            .rotate_counter_clockwise(VertexCoord::ZERO),
+            .rotated_counter_clockwise(VertexCoord::ZERO),
         (VertexCoord::new(-1, 1), TriangleOrientation::PointingDown)
     );
     assert_eq!(
         (VertexCoord::new(0, 0), TriangleOrientation::PointingDown)
-            .rotate_clockwise(VertexCoord::X),
+            .rotated_clockwise(VertexCoord::X),
         (VertexCoord::new(0, 0), TriangleOrientation::PointingUp)
     );
 }
