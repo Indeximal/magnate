@@ -3,27 +3,34 @@ use bevy::{
     render::{mesh::Indices, render_resource::PrimitiveTopology},
     sprite::MaterialMesh2dBundle,
 };
-
-pub use bevy::prelude::IVec3 as VertexCoord;
 use bevy_point_selection::Selectable;
-/// Describes the left vertex and whether the triangle points up or down
+
+/// Coordate of the verticies of the triangle grid. X is viewport towards right and Y is towards upper right.
+pub use bevy::prelude::IVec2 as VertexCoord;
+/// Describes the left vertex and whether the triangle points up or down.
 pub type FaceCoord = (VertexCoord, TriangleOrientation);
 
 pub const SQRT3_HALF: f32 = 0.866025404;
 
-const X_DIR: Vec2 = Vec2::X;
-const Y_DIR: Vec2 = Vec2::new(0.5, SQRT3_HALF);
-const W_DIR: Vec2 = Vec2::new(-0.5, SQRT3_HALF);
+const TRIANGLE_SIDE: f32 = 1.0;
+const TRIANGLE_Z: f32 = 100.;
+const SELECTABLE_RADIUS: f32 = 0.25 * TRIANGLE_SIDE;
 
-const SELECTABLE_RADIUS: f32 = 0.25;
+const X_DIR: Vec2 = Vec2::new(TRIANGLE_SIDE, 0.);
+const Y_DIR: Vec2 = Vec2::new(0.5 * TRIANGLE_SIDE, SQRT3_HALF * TRIANGLE_SIDE);
+const W_DIR: Vec2 = Vec2::new(-0.5 * TRIANGLE_SIDE, SQRT3_HALF * TRIANGLE_SIDE);
+const ISO_TO_ORTHO: Mat2 = Mat2::from_cols(X_DIR, Y_DIR);
 
-#[derive(Debug, Clone, Copy)]
+// there is no IMat :(
+const ISO_LEFT_ROT: Mat2 = Mat2::from_cols(Vec2::new(1., -1.), Vec2::new(1., 0.));
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TriangleOrientation {
     PointingUp,
     PointingDown,
 }
 
-/// Required because it is needed for the Component
+/// Required for the Component derive of [`TriangleTile`]
 impl Default for TriangleOrientation {
     fn default() -> Self {
         TriangleOrientation::PointingUp
@@ -35,40 +42,57 @@ pub struct TriangleTile {
     pub position: FaceCoord,
 }
 
-// /// inspired by https://docs.rs/bevy_ecs_tilemap/latest/bevy_ecs_tilemap/tiles/struct.TileStorage.html
-// #[derive(Component, Default, Debug, Clone)]
-// pub struct TileStorage {
-//     tiles: Vec<(Option<Entity>, Option<Entity>)>,
-//     size: (u32, u32),
-// }
-
 trait PositionInWorld {
-    fn to_world_pos(&self) -> Transform;
+    fn to_world_pos(&self, z: f32) -> Transform;
 }
 
 impl PositionInWorld for VertexCoord {
-    fn to_world_pos(&self) -> Transform {
-        let xy = self.x as f32 * X_DIR + self.y as f32 * Y_DIR + self.z as f32 * W_DIR;
+    fn to_world_pos(&self, z: f32) -> Transform {
+        let xy = ISO_TO_ORTHO * self.as_vec2();
         Transform {
-            translation: xy.extend(100.),
+            translation: xy.extend(z),
             ..Default::default()
         }
     }
 }
 
 impl PositionInWorld for FaceCoord {
-    fn to_world_pos(&self) -> Transform {
-        self.0.to_world_pos()
+    fn to_world_pos(&self, z: f32) -> Transform {
+        self.0.to_world_pos(z)
     }
 }
 
-trait Standarize {
-    fn to_standard(&self) -> Self;
+trait RotateAroundVertex {
+    fn rotate_clockwise(&self, anchor: VertexCoord) -> Self;
+    fn rotate_counter_clockwise(&self, anchor: VertexCoord) -> Self;
 }
 
-impl Standarize for VertexCoord {
-    fn to_standard(&self) -> Self {
-        VertexCoord::new(self.x - self.z, self.y + self.z, 0)
+impl RotateAroundVertex for FaceCoord {
+    fn rotate_clockwise(&self, anchor: VertexCoord) -> Self {
+        let d = self.0 - anchor;
+        let r = ISO_LEFT_ROT * d.as_vec2();
+        let p = anchor + r.as_ivec2();
+
+        match self.1 {
+            TriangleOrientation::PointingUp => (p, TriangleOrientation::PointingDown),
+            TriangleOrientation::PointingDown => {
+                (p - VertexCoord::Y, TriangleOrientation::PointingUp)
+            }
+        }
+    }
+
+    fn rotate_counter_clockwise(&self, anchor: VertexCoord) -> Self {
+        let d = self.0 - anchor;
+        let r = ISO_LEFT_ROT.inverse() * d.as_vec2();
+        let p = anchor + r.as_ivec2();
+
+        match self.1 {
+            TriangleOrientation::PointingUp => (
+                p + VertexCoord::new(-1, 1),
+                TriangleOrientation::PointingDown,
+            ),
+            TriangleOrientation::PointingDown => (p, TriangleOrientation::PointingUp),
+        }
     }
 }
 
@@ -115,8 +139,8 @@ pub fn spawn_triangle(
     // see https://github.com/NiklasEi/bevy_asset_loader/blob/main/bevy_asset_loader/examples/custom_dynamic_assets.rs
     commands
         .spawn_bundle(MaterialMesh2dBundle {
-            mesh: meshes.add(create_triangle(1., coord.1)).into(),
-            transform: coord.to_world_pos(),
+            mesh: meshes.add(create_triangle(TRIANGLE_SIDE, coord.1)).into(),
+            transform: coord.to_world_pos(TRIANGLE_Z),
             material: materials.add(ColorMaterial::from(Color::NAVY)),
             ..default()
         })
@@ -144,17 +168,20 @@ pub fn spawn_triangle(
 }
 
 #[test]
-fn test_standardization() {
+fn test_rotation() {
     assert_eq!(
-        VertexCoord::new(1, 1, 0).to_standard(),
-        VertexCoord::new(1, 1, 0)
+        (VertexCoord::new(0, 0), TriangleOrientation::PointingUp)
+            .rotate_clockwise(VertexCoord::ZERO),
+        (VertexCoord::new(0, 0), TriangleOrientation::PointingDown)
     );
     assert_eq!(
-        VertexCoord::new(1, 0, 1).to_standard(),
-        VertexCoord::new(0, 1, 0)
+        (VertexCoord::new(0, 0), TriangleOrientation::PointingUp)
+            .rotate_counter_clockwise(VertexCoord::ZERO),
+        (VertexCoord::new(-1, 1), TriangleOrientation::PointingDown)
     );
     assert_eq!(
-        VertexCoord::new(0, 0, 1).to_standard(),
-        VertexCoord::new(-1, 1, 0)
+        (VertexCoord::new(0, 0), TriangleOrientation::PointingDown)
+            .rotate_clockwise(VertexCoord::X),
+        (VertexCoord::new(0, 0), TriangleOrientation::PointingUp)
     );
 }

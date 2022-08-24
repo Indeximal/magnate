@@ -64,7 +64,7 @@ fn spawn_camera(mut commands: Commands) {
         .insert(SelectionSource);
 }
 
-/// Spawn a sprite with a triangle image
+/// Spawn some triangles
 fn spawn_triangles(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -72,13 +72,19 @@ fn spawn_triangles(
 ) {
     spawn_triangle(
         &mut commands,
-        (VertexCoord::new(0, 0, 0), TriangleOrientation::PointingUp),
+        (VertexCoord::new(0, 0), TriangleOrientation::PointingUp),
         &mut meshes,
         &mut materials,
     );
     spawn_triangle(
         &mut commands,
-        (VertexCoord::new(0, 0, 0), TriangleOrientation::PointingDown),
+        (VertexCoord::new(0, 0), TriangleOrientation::PointingDown),
+        &mut meshes,
+        &mut materials,
+    );
+    spawn_triangle(
+        &mut commands,
+        (VertexCoord::new(1, 1), TriangleOrientation::PointingUp),
         &mut meshes,
         &mut materials,
     );
