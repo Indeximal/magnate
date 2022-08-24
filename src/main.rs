@@ -2,7 +2,7 @@ use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_asset_loader::prelude::*;
 use bevy_point_selection::{PointSelectionPlugin, SelectionSource};
 use rotation::TriangleRotationPlugin;
-use tilemap::{spawn_triangle, TriangleOrientation, VertexCoord};
+use tilemap::{spawn_triangle, IterNeighbors, TriangleOrient, VertexCoord};
 
 pub const BG_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 pub const ASPECT_RATIO: f32 = 16.0 / 9.0;
@@ -70,36 +70,38 @@ fn spawn_triangles(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let tri1 = spawn_triangle(
-        &mut commands,
-        (VertexCoord::new(0, 0), TriangleOrientation::PointingUp),
-        &mut meshes,
-        &mut materials,
-    );
-    let tri2 = spawn_triangle(
-        &mut commands,
-        (VertexCoord::new(0, 0), TriangleOrientation::PointingDown),
-        &mut meshes,
-        &mut materials,
-    );
+    // large triangle down
+    let p1 = (VertexCoord::new(0, 0), TriangleOrient::PointingUp);
+    let tri1 = spawn_triangle(&mut commands, p1, &mut meshes, &mut materials);
+
+    let tri1_neighbors: Vec<Entity> = p1
+        .iter_neighbors()
+        .map(|p| spawn_triangle(&mut commands, p, &mut meshes, &mut materials))
+        .collect();
     commands
         .spawn_bundle(TransformBundle::default())
         .insert_bundle(VisibilityBundle::default())
         .add_child(tri1)
-        .add_child(tri2);
-    let tri3 = spawn_triangle(
-        &mut commands,
-        (VertexCoord::new(1, 1), TriangleOrientation::PointingUp),
-        &mut meshes,
-        &mut materials,
-    );
+        .push_children(tri1_neighbors.as_slice());
+
+    // large triangle up
+    let p2 = (VertexCoord::new(-4, 0), TriangleOrient::PointingDown);
+    let tri2 = spawn_triangle(&mut commands, p2, &mut meshes, &mut materials);
+
+    let tri2_neighbors: Vec<Entity> = p2
+        .iter_neighbors()
+        .map(|p| spawn_triangle(&mut commands, p, &mut meshes, &mut materials))
+        .collect();
     commands
         .spawn_bundle(TransformBundle::default())
         .insert_bundle(VisibilityBundle::default())
-        .add_child(tri3);
+        .add_child(tri2)
+        .push_children(tri2_neighbors.as_slice());
+
+    // single triangle
     let tri4 = spawn_triangle(
         &mut commands,
-        (VertexCoord::new(2, -1), TriangleOrientation::PointingDown),
+        (VertexCoord::new(2, -1), TriangleOrient::PointingDown),
         &mut meshes,
         &mut materials,
     );

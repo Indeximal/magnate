@@ -11,7 +11,7 @@ use bevy_point_selection::Selectable;
 pub use bevy::prelude::IVec2 as VertexCoord;
 /// Describes the left vertex and whether the triangle points up or down.
 /// If it is pointing down, the mesh is rotated a sixth turn clockwise.
-pub type FaceCoord = (VertexCoord, TriangleOrientation);
+pub type FaceCoord = (VertexCoord, TriangleOrient);
 
 pub const SQRT3_HALF: f32 = 0.866025404;
 
@@ -27,15 +27,15 @@ const ISO_TO_ORTHO: Mat2 = Mat2::from_cols(X_DIR, Y_DIR);
 const ISO_LEFT_ROT: Mat2 = Mat2::from_cols(Vec2::new(1., -1.), Vec2::new(1., 0.));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TriangleOrientation {
+pub enum TriangleOrient {
     PointingUp,
     PointingDown,
 }
 
 /// Required for the Component derive of [`TriangleTile`]
-impl Default for TriangleOrientation {
+impl Default for TriangleOrient {
     fn default() -> Self {
-        TriangleOrientation::PointingUp
+        TriangleOrient::PointingUp
     }
 }
 
@@ -61,8 +61,8 @@ impl PositionInWorld for VertexCoord {
 impl PositionInWorld for FaceCoord {
     fn to_world_pos(&self, z: f32) -> Transform {
         self.0.to_world_pos(z).with_rotation(match self.1 {
-            TriangleOrientation::PointingUp => Quat::default(),
-            TriangleOrientation::PointingDown => Quat::from_rotation_z(-PI / 3.),
+            TriangleOrient::PointingUp => Quat::default(),
+            TriangleOrient::PointingDown => Quat::from_rotation_z(-PI / 3.),
         })
     }
 }
@@ -90,10 +90,8 @@ impl RotateAroundVertex for FaceCoord {
         let p = anchor + r.round().as_ivec2();
 
         match self.1 {
-            TriangleOrientation::PointingUp => (p, TriangleOrientation::PointingDown),
-            TriangleOrientation::PointingDown => {
-                (p - VertexCoord::Y, TriangleOrientation::PointingUp)
-            }
+            TriangleOrient::PointingUp => (p, TriangleOrient::PointingDown),
+            TriangleOrient::PointingDown => (p - VertexCoord::Y, TriangleOrient::PointingUp),
         }
     }
 
@@ -103,12 +101,35 @@ impl RotateAroundVertex for FaceCoord {
         let p = anchor + r.round().as_ivec2();
 
         match self.1 {
-            TriangleOrientation::PointingUp => (
-                p + VertexCoord::new(-1, 1),
-                TriangleOrientation::PointingDown,
-            ),
-            TriangleOrientation::PointingDown => (p, TriangleOrientation::PointingUp),
+            TriangleOrient::PointingUp => {
+                (p + VertexCoord::new(-1, 1), TriangleOrient::PointingDown)
+            }
+            TriangleOrient::PointingDown => (p, TriangleOrient::PointingUp),
         }
+    }
+}
+
+pub trait IterNeighbors {
+    type Iter: ExactSizeIterator<Item = Self>;
+    fn iter_neighbors(&self) -> Self::Iter;
+}
+
+impl IterNeighbors for FaceCoord {
+    type Iter = std::array::IntoIter<Self, 3>;
+    fn iter_neighbors(&self) -> Self::Iter {
+        match self.1 {
+            TriangleOrient::PointingUp => [
+                (self.0, TriangleOrient::PointingDown),
+                (self.0 + IVec2::new(-1, 1), TriangleOrient::PointingDown),
+                (self.0 + IVec2::Y, TriangleOrient::PointingDown),
+            ],
+            TriangleOrient::PointingDown => [
+                (self.0, TriangleOrient::PointingUp),
+                (self.0 - IVec2::new(-1, 1), TriangleOrient::PointingUp),
+                (self.0 - IVec2::Y, TriangleOrient::PointingUp),
+            ],
+        }
+        .into_iter()
     }
 }
 
@@ -176,18 +197,16 @@ pub fn spawn_triangle(
 #[test]
 fn test_rotation() {
     assert_eq!(
-        (VertexCoord::new(0, 0), TriangleOrientation::PointingUp)
-            .rotated_clockwise(VertexCoord::ZERO),
-        (VertexCoord::new(0, 0), TriangleOrientation::PointingDown)
+        (VertexCoord::new(0, 0), TriangleOrient::PointingUp).rotated_clockwise(VertexCoord::ZERO),
+        (VertexCoord::new(0, 0), TriangleOrient::PointingDown)
     );
     assert_eq!(
-        (VertexCoord::new(0, 0), TriangleOrientation::PointingUp)
+        (VertexCoord::new(0, 0), TriangleOrient::PointingUp)
             .rotated_counter_clockwise(VertexCoord::ZERO),
-        (VertexCoord::new(-1, 1), TriangleOrientation::PointingDown)
+        (VertexCoord::new(-1, 1), TriangleOrient::PointingDown)
     );
     assert_eq!(
-        (VertexCoord::new(0, 0), TriangleOrientation::PointingDown)
-            .rotated_clockwise(VertexCoord::X),
-        (VertexCoord::new(0, 0), TriangleOrientation::PointingUp)
+        (VertexCoord::new(0, 0), TriangleOrient::PointingDown).rotated_clockwise(VertexCoord::X),
+        (VertexCoord::new(0, 0), TriangleOrient::PointingUp)
     );
 }
