@@ -9,6 +9,8 @@ edition = "2021"
 bevy = { version = "0.8", features = ["dynamic"] }
 bevy_asset_loader = "0.12"
 bevy-point-selection = { path = "./bevy-point-selection"}
+serde = "1.0"
+serde_json = "1.0"
 
 [workspace]
 members = [

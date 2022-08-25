@@ -13,16 +13,16 @@ use crate::{
 };
 
 #[derive(Component, Default)]
-struct SelectedTrianglesState {
+pub struct SelectedTrianglesState {
     /// The entity ids of all currently selected [`TriangleTile`]
     pub selected_set: HashSet<Entity>,
     /// The coordinate of the rotation point if it exists, otherwise undefined
     pub anchor: VertexCoord,
 }
 
-pub struct TriangleRotationPlugin;
+pub struct MagnateRotationPlugin;
 
-impl Plugin for TriangleRotationPlugin {
+impl Plugin for MagnateRotationPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_selector))
             .add_system_set(

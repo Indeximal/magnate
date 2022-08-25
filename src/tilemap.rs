@@ -7,6 +7,7 @@ use bevy_point_selection::Selectable;
 
 /// Coordate of the verticies of the triangle grid. X is viewport towards right and Y is towards upper right.
 pub use bevy::prelude::IVec2 as VertexCoord;
+use serde::{Deserialize, Serialize};
 /// Describes the left vertex and whether the triangle points up or down.
 /// If it is pointing down, the mesh is rotated a sixth turn clockwise.
 pub type FaceCoord = (VertexCoord, TriangleOrient);
@@ -25,7 +26,7 @@ const ISO_TO_ORTHO: Mat2 = Mat2::from_cols(X_DIR, Y_DIR);
 // there is no IMat :(
 const ISO_LEFT_ROT: Mat2 = Mat2::from_cols(Vec2::new(1., -1.), Vec2::new(1., 0.));
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TriangleOrient {
     PointingUp,
     PointingDown,
@@ -38,7 +39,7 @@ impl Default for TriangleOrient {
     }
 }
 
-#[derive(Component, Default, Debug, Clone)]
+#[derive(Component, Default, Debug, Clone, Serialize, Deserialize)]
 pub struct TriangleTile {
     pub position: FaceCoord,
 }

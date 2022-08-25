@@ -1482,6 +1482,8 @@ dependencies = [
  "bevy",
  "bevy-point-selection",
  "bevy_asset_loader",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

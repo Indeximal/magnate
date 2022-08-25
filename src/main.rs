@@ -4,8 +4,9 @@
 //! Rotate triangles to light up the glyphs, but beware that they're inseperarable once touching.
 //!
 //! ## TODO:
-//! - Level Editor, ie saving/loading scenes
+//! - Level Editor
 //! - Goal glyphs and check
+//! - Wasm (check save/load)
 //!
 //! - Rotation Ghost
 //! - Particles?
@@ -16,13 +17,13 @@
 use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_asset_loader::prelude::*;
 use bevy_point_selection::{PointSelectionPlugin, SelectionSource};
-use rotation::TriangleRotationPlugin;
-use tilemap::{
-    create_triangle, spawn_triangle, IterNeighbors, TriangleOrient, VertexCoord, TRIANGLE_SIDE,
-};
+use level::{spawn_level, MagnateLevelPlugin};
+use rotation::MagnateRotationPlugin;
+use tilemap::{create_triangle, TRIANGLE_SIDE};
 
 pub const BG_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 
+mod level;
 mod rotation;
 mod tilemap;
 
@@ -66,12 +67,13 @@ fn main() {
         .add_state(GameState::AssetLoading)
         .add_plugins(DefaultPlugins)
         .add_plugin(PointSelectionPlugin)
-        .add_plugin(TriangleRotationPlugin)
+        .add_plugin(MagnateRotationPlugin)
+        .add_plugin(MagnateLevelPlugin)
         .add_system_set(
             SystemSet::on_enter(GameState::Next)
                 .with_system(spawn_camera)
-                .with_system(spawn_triangles)
-                .with_system(spawn_background),
+                .with_system(spawn_background)
+                .with_system(initial_load.exclusive_system()),
         )
         .run();
 }
@@ -100,103 +102,26 @@ fn spawn_background(mut commands: Commands, assets: Res<SpriteAssets>) {
         .insert(Name::new("Background"));
 }
 
-/// Spawn some triangles
-fn spawn_triangles(
-    mut commands: Commands,
-    sprites: Res<SpriteAssets>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+/// Spawn the first level
+fn initial_load(world: &mut World) {
     // maybe use asset loader lib?
     //  see https://github.com/NiklasEi/bevy_asset_loader/blob/main/bevy_asset_loader/examples/custom_dynamic_assets.rs
-    let assets = AssetHandles {
-        triangle_mesh: meshes.add(create_triangle(TRIANGLE_SIDE)),
-        triangle_material: materials.add(ColorMaterial {
+    let sprite = world.resource::<SpriteAssets>().ruby_triangle.clone();
+    let meshes = world
+        .resource_mut::<Assets<Mesh>>()
+        .add(create_triangle(TRIANGLE_SIDE));
+    let materials = world
+        .resource_mut::<Assets<ColorMaterial>>()
+        .add(ColorMaterial {
             color: Color::WHITE,
-            texture: Some(sprites.ruby_triangle.clone()),
-        }),
+            texture: Some(sprite),
+        });
+    let assets = AssetHandles {
+        triangle_mesh: meshes,
+        triangle_material: materials,
     };
+    // This needs to happen before spawn_level
+    world.insert_resource(assets);
 
-    // large triangle down
-    let p1 = (VertexCoord::new(0, 0), TriangleOrient::PointingUp);
-    let tri1 = spawn_triangle(
-        &mut commands,
-        p1,
-        assets.triangle_mesh.clone(),
-        assets.triangle_material.clone(),
-    );
-
-    // let tri1_neighbors: Vec<Entity> = p1
-    //     .iter_neighbors()
-    //     .map(|p| spawn_triangle(&mut commands, p, assets.triangle_mesh.clone(), assets.triangle_material.clone()))
-    //     .collect();
-    commands
-        .spawn_bundle(TransformBundle::default())
-        .insert_bundle(VisibilityBundle::default())
-        .add_child(tri1);
-    // .push_children(tri1_neighbors.as_slice());
-
-    // large triangle up
-    let p2 = (VertexCoord::new(-4, 0), TriangleOrient::PointingDown);
-    let tri2 = spawn_triangle(
-        &mut commands,
-        p2,
-        assets.triangle_mesh.clone(),
-        assets.triangle_material.clone(),
-    );
-
-    let tri2_neighbors: Vec<Entity> = p2
-        .iter_neighbors()
-        .map(|p| {
-            spawn_triangle(
-                &mut commands,
-                p,
-                assets.triangle_mesh.clone(),
-                assets.triangle_material.clone(),
-            )
-        })
-        .collect();
-    commands
-        .spawn_bundle(TransformBundle::default())
-        .insert_bundle(VisibilityBundle::default())
-        .add_child(tri2)
-        .push_children(tri2_neighbors.as_slice());
-
-    // single triangle, bottom right corner
-    let tri4 = spawn_triangle(
-        &mut commands,
-        (VertexCoord::new(6, -3), TriangleOrient::PointingDown),
-        assets.triangle_mesh.clone(),
-        assets.triangle_material.clone(),
-    );
-    commands
-        .spawn_bundle(TransformBundle::default())
-        .insert_bundle(VisibilityBundle::default())
-        .add_child(tri4);
-
-    // single triangle top left
-    let tri4 = spawn_triangle(
-        &mut commands,
-        (VertexCoord::new(-8, 4), TriangleOrient::PointingUp),
-        assets.triangle_mesh.clone(),
-        assets.triangle_material.clone(),
-    );
-    commands
-        .spawn_bundle(TransformBundle::default())
-        .insert_bundle(VisibilityBundle::default())
-        .add_child(tri4);
-
-    // single triangle, bottom left
-    let tri4 = spawn_triangle(
-        &mut commands,
-        (VertexCoord::new(-4, -4), TriangleOrient::PointingUp),
-        assets.triangle_mesh.clone(),
-        assets.triangle_material.clone(),
-    );
-    commands
-        .spawn_bundle(TransformBundle::default())
-        .insert_bundle(VisibilityBundle::default())
-        .add_child(tri4);
-
-    commands.insert_resource(assets);
+    spawn_level(world, "1");
 }

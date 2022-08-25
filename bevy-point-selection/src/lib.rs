@@ -104,13 +104,14 @@ fn selection_system(
 }
 
 /// This system updates the set of selected [`Selectable`]. It also sets the visibility of the indicator
-/// and if applicable its position as well. If multiple [`Selectable`] are selected the position is choosen
+/// and if applicable its position as well. If multiple [`Selectable`] are selected, the position is choosen
 /// arbitrary.
 fn update_selector(
     mut indicator: Query<(&mut Visibility, &mut Transform, &mut SelectionIndicator)>,
     triggers: Query<(Entity, &GlobalTransform, &Selectable), Changed<Selectable>>,
+    entities: Query<Entity>,
 ) {
-    // Early return if there is no indicator or it hasn't been spawned
+    // Early return if there is no indicator or it hasn't been spawned yet
     let (mut visi, mut transf, mut indic) = match indicator.get_single_mut() {
         Ok(x) => x,
         Err(_) => return,
@@ -128,6 +129,17 @@ fn update_selector(
             // Just removed
             indic.selected_triggers.remove(&eid);
         }
+    }
+
+    // Clean up despawned entities
+    let orphaned_ids = indic
+        .selected_triggers
+        .iter()
+        .filter(|&&eid| entities.get(eid).is_err())
+        .cloned()
+        .collect::<Vec<Entity>>();
+    for eid in orphaned_ids {
+        indic.selected_triggers.remove(&eid);
     }
 
     // only update when changed
