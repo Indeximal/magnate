@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
@@ -13,12 +11,13 @@ pub use bevy::prelude::IVec2 as VertexCoord;
 /// If it is pointing down, the mesh is rotated a sixth turn clockwise.
 pub type FaceCoord = (VertexCoord, TriangleOrient);
 
-pub const SQRT3_HALF: f32 = 0.866025404;
+pub const TRIANGLE_SIDE: f32 = 85.0;
+const ZERO_OFFSET: Vec2 = Vec2::new(11., -34.);
 
-const TRIANGLE_SIDE: f32 = 1.0;
-const TRIANGLE_Z: f32 = 100.;
+const TRIANGLE_Z: f32 = 500.;
 const SELECTABLE_RADIUS: f32 = 0.25 * TRIANGLE_SIDE;
 
+const SQRT3_HALF: f32 = 0.866025404;
 const X_DIR: Vec2 = Vec2::new(TRIANGLE_SIDE, 0.);
 const Y_DIR: Vec2 = Vec2::new(0.5 * TRIANGLE_SIDE, SQRT3_HALF * TRIANGLE_SIDE);
 const ISO_TO_ORTHO: Mat2 = Mat2::from_cols(X_DIR, Y_DIR);
@@ -50,7 +49,7 @@ pub trait PositionInWorld {
 
 impl PositionInWorld for VertexCoord {
     fn to_world_pos(&self, z: f32) -> Transform {
-        let xy = ISO_TO_ORTHO * self.as_vec2();
+        let xy = ZERO_OFFSET + ISO_TO_ORTHO * self.as_vec2();
         Transform {
             translation: xy.extend(z),
             ..Default::default()
@@ -60,9 +59,9 @@ impl PositionInWorld for VertexCoord {
 
 impl PositionInWorld for FaceCoord {
     fn to_world_pos(&self, z: f32) -> Transform {
-        self.0.to_world_pos(z).with_rotation(match self.1 {
-            TriangleOrient::PointingUp => Quat::default(),
-            TriangleOrient::PointingDown => Quat::from_rotation_z(-PI / 3.),
+        self.0.to_world_pos(z).with_scale(match self.1 {
+            TriangleOrient::PointingUp => Vec3::ONE,
+            TriangleOrient::PointingDown => Vec3::new(1., -1., 1.),
         })
     }
 }
@@ -73,7 +72,7 @@ pub trait FromWorldPosition {
 
 impl FromWorldPosition for VertexCoord {
     fn from_world_pos(pos: Vec2) -> Self {
-        let xy = ISO_TO_ORTHO.inverse() * pos;
+        let xy = ISO_TO_ORTHO.inverse() * (pos - ZERO_OFFSET);
         xy.round().as_ivec2()
     }
 }
@@ -133,20 +132,25 @@ impl IterNeighbors for FaceCoord {
     }
 }
 
-/// create a new mesh for a triangle
+/// create a mesh for a flippable triangle. The two sides use UV 0..0.5 and 0.5..1.
 pub fn create_triangle(size: f32) -> Mesh {
     // pos  , normal  , uv
     // x y z, nx ny nz, u v
     let vertices = [
-        ([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.0]),
-        ([size, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0]),
+        ([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.5]),
+        ([size, 0.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.5]),
         (
             [size / 2., size * SQRT3_HALF, 0.0],
             [0.0, 0.0, 1.0],
-            [1.0, 0.5],
+            [0.5, 0.0],
+        ),
+        (
+            [size / 2., size * SQRT3_HALF, 0.0],
+            [0.0, 0.0, 1.0],
+            [0.5, 1.0],
         ),
     ];
-    let indices = Indices::U32(vec![0, 1, 2]);
+    let indices = Indices::U32(vec![0, 1, 2, 0, 3, 1]);
 
     let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
     let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
@@ -163,16 +167,14 @@ pub fn create_triangle(size: f32) -> Mesh {
 pub fn spawn_triangle(
     commands: &mut Commands,
     coord: FaceCoord,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<ColorMaterial>,
+    mesh: Handle<Mesh>,
+    mat: Handle<ColorMaterial>,
 ) -> Entity {
-    // Todo: optimize, don't create a mesh every time?
-    // see https://github.com/NiklasEi/bevy_asset_loader/blob/main/bevy_asset_loader/examples/custom_dynamic_assets.rs
     commands
         .spawn_bundle(MaterialMesh2dBundle {
-            mesh: meshes.add(create_triangle(TRIANGLE_SIDE)).into(),
+            mesh: mesh.into(),
             transform: coord.to_world_pos(TRIANGLE_Z),
-            material: materials.add(ColorMaterial::from(Color::NAVY)),
+            material: mat,
             ..default()
         })
         .insert(TriangleTile { position: coord })

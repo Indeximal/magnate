@@ -7,7 +7,7 @@ use bevy_point_selection::SelectionIndicator;
 use crate::{
     tilemap::{
         FaceCoord, FromWorldPosition, IterNeighbors, PositionInWorld, RotateAroundVertex,
-        TriangleTile, VertexCoord,
+        TriangleTile, VertexCoord, TRIANGLE_SIDE,
     },
     GameState, SpriteAssets,
 };
@@ -41,7 +41,7 @@ fn spawn_selector(mut commands: Commands, assets: Res<SpriteAssets>) {
         .spawn_bundle(SpriteBundle {
             texture: assets.circle.clone(),
             sprite: Sprite {
-                custom_size: Some(Vec2::splat(0.4)),
+                custom_size: Some(Vec2::splat(0.4 * TRIANGLE_SIDE)),
                 color: Color::rgb_u8(87, 207, 255),
                 ..Default::default()
             },
@@ -196,6 +196,7 @@ fn merge_system(
             commands
                 .entity(p1)
                 .push_children(new_tiles.iter().as_slice());
+            commands.entity(p2).despawn();
         }
     }
 }
