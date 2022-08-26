@@ -1,18 +1,23 @@
 //! # Magnate
 //! A bevy game for bevy jam 2.
 //!
-//! Rotate triangles to light up the glyphs, but beware that they're inseperarable once touching.
+//! Rotate triangles to light up the runes, but beware that they're inseperarable once touching.
 //!
 //! ## TODO:
 //! - Level Editor
-//! - Goal glyphs and check
-//! - Wasm (check save/load)
+//!     - save/load runes
+//!     - clear
+//!     - place triangles
+//!     - levels 1-9
+//! - Rune logic
+//!     - light up then rotated into
+//!     - next level when all done
+//!
+//! - Non Moveables at the boundaries
 //!
 //! - Rotation Ghost
 //! - Particles?
-//!
-//! - Different Colors
-//! - Non Moveables
+//! - Different Colors?
 
 use bevy::{
     prelude::*,

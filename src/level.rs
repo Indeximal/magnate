@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::{io::Write, path::PathBuf};
 
 use bevy::{
@@ -16,6 +17,8 @@ use crate::{
 };
 
 const SELECTABLE_RADIUS: f32 = 0.25 * TRIANGLE_SIDE;
+
+const LEVEL_1: &str = include_str!("../levels/1.json");
 
 pub struct MagnateLevelPlugin;
 
@@ -153,6 +156,10 @@ fn write_json(data: String, name: &str) {
 }
 
 fn read_json(name: &str) -> Result<String, ()> {
+    if name == "1" {
+        return Ok(String::from(LEVEL_1));
+    }
+
     // from https://github.com/rparrett/pixie_wrangler/blob/main/src/save.rs
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -198,22 +205,27 @@ fn save_system(world: &mut World) {
     );
 
     match tris {
-        Ok(data) => write_json(data, "1"),
+        Ok(data) => write_json(data, "tmp"),
         Err(e) => warn!("Failed to serialize save file: {:?}", e),
     };
 }
 
 fn load_system(world: &mut World) {
-    // Continue on 1
+    // Continue on button press
     let keys = world.resource::<Input<KeyCode>>();
-    if !keys.just_pressed(KeyCode::Key1) {
+    if !keys.just_pressed(KeyCode::F5) {
         return;
     }
 
-    spawn_level(world, "1");
+    spawn_level(world, "tmp");
 }
 
 pub fn spawn_level(world: &mut World, name: &str) {
+    if name == "0" {
+        // Level zero is always empty
+        return;
+    }
+
     let deser = match read_json(name) {
         Ok(data) => serde_json::from_str::<Vec<(TileCoord, Entity)>>(&data),
         Err(_) => {
