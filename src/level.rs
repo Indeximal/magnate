@@ -18,7 +18,20 @@ use crate::{
 
 const SELECTABLE_RADIUS: f32 = 0.25 * TRIANGLE_SIDE;
 
-const LEVEL_1: &str = include_str!("../levels/1.json");
+const LEVELS: &[&'static str] = &[
+    include_str!("../levels/1.json"), // TODO Create level 0
+    include_str!("../levels/1.json"),
+];
+
+pub struct LevelInfo {
+    pub current: usize,
+}
+
+impl Default for LevelInfo {
+    fn default() -> Self {
+        Self { current: 1 }
+    }
+}
 
 pub struct MagnateLevelPlugin;
 
@@ -29,7 +42,8 @@ impl Plugin for MagnateLevelPlugin {
                 .with_system(save_system.exclusive_system())
                 .with_system(load_system.exclusive_system())
                 .with_system(rune_builder),
-        );
+        )
+        .init_resource::<LevelInfo>();
     }
 }
 
@@ -153,18 +167,28 @@ fn write_json(data: String, name: &str) {
             warn!("Failed to store save file: {:?}", e);
         }
     }
+
+    info!("Wrote to save file {}", name);
 }
 
 fn read_json(name: &str) -> Result<String, ()> {
-    if name == "1" {
-        return Ok(String::from(LEVEL_1));
+    // Read static levels if existing. They have the numberic names starting from "0".
+    let as_num: Result<usize, _> = name.parse();
+    if let Ok(i) = as_num {
+        if let Some(data) = LEVELS.get(i) {
+            info!("Read static save state {}", name);
+            return Ok(String::from(*data));
+        }
     }
 
     // from https://github.com/rparrett/pixie_wrangler/blob/main/src/save.rs
     #[cfg(not(target_arch = "wasm32"))]
     {
         match std::fs::read_to_string(json_path(name)) {
-            Ok(s) => Ok(s),
+            Ok(s) => {
+                info!("Read from save file {}", name);
+                Ok(s)
+            }
             Err(_) => Err(()),
         }
     }
@@ -184,17 +208,23 @@ fn read_json(name: &str) -> Result<String, ()> {
             Ok(Some(i)) => i,
             _ => return Err(()),
         };
-
+        info!("Read from save state {}", name);
         Ok(String::from(item))
     }
 }
 
 fn save_system(world: &mut World) {
-    // Continue on Ctrl+S
     let keys = world.resource::<Input<KeyCode>>();
-    if !(keys.just_pressed(KeyCode::S) && keys.pressed(KeyCode::LControl)) {
+    let is_modifier_down = keys.pressed(KeyCode::LControl);
+    if !is_modifier_down {
         return;
     }
+    let save_as_level = get_just_pressed_num(keys);
+
+    let level_name = match save_as_level {
+        Some(i) => i,
+        None => return,
+    };
 
     let mut query = world.query::<(&TriangleTile, &Parent)>();
     let tris = serde_json::to_string(
@@ -205,27 +235,35 @@ fn save_system(world: &mut World) {
     );
 
     match tris {
-        Ok(data) => write_json(data, "tmp"),
+        Ok(data) => write_json(data, level_name.to_string().as_str()),
         Err(e) => warn!("Failed to serialize save file: {:?}", e),
     };
 }
 
+/// Load Levels when pressing either the number buttons for a specific level or R to restart the level
 fn load_system(world: &mut World) {
-    // Continue on button press
     let keys = world.resource::<Input<KeyCode>>();
-    if !keys.just_pressed(KeyCode::F5) {
+    let is_modifier_down = keys.pressed(KeyCode::LControl);
+    if is_modifier_down {
         return;
     }
+    let jump_to_level_key = get_just_pressed_num(keys);
+    let should_reload = keys.just_pressed(KeyCode::R);
 
-    spawn_level(world, "tmp");
+    let mut lvl = world.resource_mut::<LevelInfo>();
+
+    if let Some(key) = jump_to_level_key {
+        lvl.current = key;
+        spawn_level(world, key.to_string().as_str());
+    } else if should_reload {
+        let curr = lvl.current;
+        spawn_level(world, curr.to_string().as_str());
+    }
 }
 
+/// Replaces the world content with the level named `name`. Numerical names are the
+/// prebuilt levels.
 pub fn spawn_level(world: &mut World, name: &str) {
-    if name == "0" {
-        // Level zero is always empty
-        return;
-    }
-
     let deser = match read_json(name) {
         Ok(data) => serde_json::from_str::<Vec<(TileCoord, Entity)>>(&data),
         Err(_) => {
@@ -283,4 +321,39 @@ pub fn clear_world(world: &mut World) {
     for clump in current_clumps {
         despawn_with_children_recursive(world, clump);
     }
+}
+
+fn get_just_pressed_num(keys: &Input<KeyCode>) -> Option<usize> {
+    // UUUGGGLYYYY
+    if keys.just_pressed(KeyCode::Key0) {
+        return Some(0);
+    }
+    if keys.just_pressed(KeyCode::Key1) {
+        return Some(1);
+    }
+    if keys.just_pressed(KeyCode::Key2) {
+        return Some(2);
+    }
+    if keys.just_pressed(KeyCode::Key3) {
+        return Some(3);
+    }
+    if keys.just_pressed(KeyCode::Key4) {
+        return Some(4);
+    }
+    if keys.just_pressed(KeyCode::Key5) {
+        return Some(5);
+    }
+    if keys.just_pressed(KeyCode::Key6) {
+        return Some(6);
+    }
+    if keys.just_pressed(KeyCode::Key7) {
+        return Some(7);
+    }
+    if keys.just_pressed(KeyCode::Key8) {
+        return Some(8);
+    }
+    if keys.just_pressed(KeyCode::Key9) {
+        return Some(9);
+    }
+    None
 }

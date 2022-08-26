@@ -8,7 +8,6 @@
 //!     - save/load runes
 //!     - clear
 //!     - place triangles
-//!     - levels 1-9
 //! - Rune logic
 //!     - light up then rotated into
 //!     - next level when all done
@@ -25,7 +24,7 @@ use bevy::{
 };
 use bevy_asset_loader::prelude::*;
 use bevy_point_selection::{PointSelectionPlugin, SelectionSource};
-use level::{spawn_level, MagnateLevelPlugin};
+use level::{spawn_level, LevelInfo, MagnateLevelPlugin};
 use rotation::MagnateRotationPlugin;
 use tilemap::{SQRT3_HALF, TRIANGLE_SIDE};
 
@@ -141,7 +140,9 @@ fn initial_load(world: &mut World) {
     // This needs to happen before spawn_level
     world.insert_resource(assets);
 
-    spawn_level(world, "1");
+    // Get the default level from [`LevelInfo`]
+    let lvl = world.resource::<LevelInfo>().current;
+    spawn_level(world, lvl.to_string().as_str());
 }
 
 /// create a mesh for a flippable triangle. The two sides use UV 0..0.5 and 0.5..1.
