@@ -4,10 +4,6 @@
 //! Rotate triangles to light up the runes, but beware that they're inseperarable once touching.
 //!
 //! ## TODO:
-//! - Level Editor
-//!     - save/load runes
-//!     - clear
-//!     - place triangles
 //! - Rune logic
 //!     - light up then rotated into
 //!     - next level when all done
@@ -25,12 +21,14 @@ use bevy::{
 use bevy_asset_loader::prelude::*;
 use bevy_point_selection::{PointSelectionPlugin, SelectionSource};
 use level::{spawn_level, LevelInfo, MagnateLevelPlugin};
+use level_editor::MagnateLevelEditorPlugin;
 use rotation::MagnateRotationPlugin;
 use tilemap::{SQRT3_HALF, TRIANGLE_SIDE};
 
 pub const BG_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 
 mod level;
+mod level_editor;
 mod rotation;
 mod tilemap;
 
@@ -86,6 +84,7 @@ fn main() {
         .add_plugin(PointSelectionPlugin)
         .add_plugin(MagnateRotationPlugin)
         .add_plugin(MagnateLevelPlugin)
+        .add_plugin(MagnateLevelEditorPlugin)
         .add_system_set(
             SystemSet::on_enter(GameState::Next)
                 .with_system(spawn_camera)
