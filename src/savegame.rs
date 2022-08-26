@@ -26,9 +26,9 @@ impl Default for LevelInfo {
     }
 }
 
-pub struct MagnateLevelPlugin;
+pub struct MagnateSaveGamePlugin;
 
-impl Plugin for MagnateLevelPlugin {
+impl Plugin for MagnateSaveGamePlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(
             SystemSet::on_update(GameState::Next)

@@ -20,16 +20,16 @@ use bevy::{
 };
 use bevy_asset_loader::prelude::*;
 use bevy_point_selection::{PointSelectionPlugin, SelectionSource};
-use level::{spawn_level, LevelInfo, MagnateLevelPlugin};
 use level_editor::MagnateLevelEditorPlugin;
 use rotation::MagnateRotationPlugin;
+use savegame::{spawn_level, LevelInfo, MagnateSaveGamePlugin};
 use tilemap::{SQRT3_HALF, TRIANGLE_SIDE};
 
 pub const BG_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 
-mod level;
 mod level_editor;
 mod rotation;
+mod savegame;
 mod tilemap;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -83,7 +83,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(PointSelectionPlugin)
         .add_plugin(MagnateRotationPlugin)
-        .add_plugin(MagnateLevelPlugin)
+        .add_plugin(MagnateSaveGamePlugin)
         .add_plugin(MagnateLevelEditorPlugin)
         .add_system_set(
             SystemSet::on_enter(GameState::Next)
