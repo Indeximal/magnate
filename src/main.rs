@@ -14,12 +14,15 @@
 //! - Different Colors
 //! - Non Moveables
 
-use bevy::{prelude::*, render::camera::ScalingMode};
+use bevy::{
+    prelude::*,
+    render::{camera::ScalingMode, mesh::Indices, render_resource::PrimitiveTopology},
+};
 use bevy_asset_loader::prelude::*;
 use bevy_point_selection::{PointSelectionPlugin, SelectionSource};
 use level::{spawn_level, MagnateLevelPlugin};
 use rotation::MagnateRotationPlugin;
-use tilemap::{create_triangle, TRIANGLE_SIDE};
+use tilemap::{SQRT3_HALF, TRIANGLE_SIDE};
 
 pub const BG_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 
@@ -41,6 +44,16 @@ struct SpriteAssets {
     background: Handle<Image>,
     #[asset(path = "ruby_triangle.png")]
     ruby_triangle: Handle<Image>,
+    #[asset(texture_atlas(
+        tile_size_x = 128.,
+        tile_size_y = 128.,
+        columns = 2,
+        rows = 5,
+        padding_x = 0.,
+        padding_y = 0.
+    ))]
+    #[asset(path = "rune_sheet.png")]
+    runes: Handle<TextureAtlas>,
 }
 
 struct AssetHandles {
@@ -109,7 +122,7 @@ fn initial_load(world: &mut World) {
     let sprite = world.resource::<SpriteAssets>().ruby_triangle.clone();
     let meshes = world
         .resource_mut::<Assets<Mesh>>()
-        .add(create_triangle(TRIANGLE_SIDE));
+        .add(create_triangle_mesh(TRIANGLE_SIDE));
     let materials = world
         .resource_mut::<Assets<ColorMaterial>>()
         .add(ColorMaterial {
@@ -124,4 +137,36 @@ fn initial_load(world: &mut World) {
     world.insert_resource(assets);
 
     spawn_level(world, "1");
+}
+
+/// create a mesh for a flippable triangle. The two sides use UV 0..0.5 and 0.5..1.
+fn create_triangle_mesh(size: f32) -> Mesh {
+    // pos  , normal  , uv
+    // x y z, nx ny nz, u v
+    let vertices = [
+        ([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.5]),
+        ([size, 0.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.5]),
+        (
+            [size / 2., size * SQRT3_HALF, 0.0],
+            [0.0, 0.0, 1.0],
+            [0.5, 0.0],
+        ),
+        (
+            [size / 2., size * SQRT3_HALF, 0.0],
+            [0.0, 0.0, 1.0],
+            [0.5, 1.0],
+        ),
+    ];
+    let indices = Indices::U32(vec![0, 1, 2, 0, 3, 1]);
+
+    let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+    let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+    let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
+
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    mesh.set_indices(Some(indices));
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh
 }

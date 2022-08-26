@@ -53,6 +53,25 @@ impl SelectionIndicator {
     }
 }
 
+pub fn viewport_to_world(
+    camera: &Camera,
+    cam_transform: &GlobalTransform,
+    window: &Window,
+) -> Option<Vec2> {
+    // Math from https://github.com/Anshorei/bevy_rei/tree/master/bevy_interact_2d
+    let cursor_pos = window.cursor_position()?;
+    let projection_matrix = camera.projection_matrix();
+    let screen_size = Vec2::new(window.width(), window.height());
+    let cursor_position_ndc = (cursor_pos / screen_size) * 2.0 - Vec2::from([1.0, 1.0]);
+    let camera_matrix = cam_transform.compute_matrix();
+    let ndc_to_world = camera_matrix * projection_matrix.inverse();
+    let cursor_position = ndc_to_world
+        .transform_point3(cursor_position_ndc.extend(1.0))
+        .truncate();
+
+    Some(cursor_position)
+}
+
 /// This system updates Selectable components based on the cursor position
 /// Todo: use ChangeTrackers<GlobalTransform> to update less often, but this doesn't
 /// change asymtotic complextity, thus probably is more overhead.
@@ -61,7 +80,7 @@ fn selection_system(
     sources: Query<(&Camera, &GlobalTransform), With<SelectionSource>>,
     mut sinks: Query<(&mut Selectable, &GlobalTransform)>,
 ) {
-    for (camera, global_transform) in sources.iter() {
+    for (camera, cam_transform) in sources.iter() {
         // todo: rewrite with iter functions or let else
         let window = match camera.target {
             RenderTarget::Window(id) => match windows.get(id) {
@@ -70,19 +89,10 @@ fn selection_system(
             },
             _ => continue,
         };
-        let cursor_pos = match window.cursor_position() {
+        let cursor_position = match viewport_to_world(camera, cam_transform, window) {
             Some(pos) => pos,
             None => continue,
         };
-        // view to world
-        let projection_matrix = camera.projection_matrix();
-        let screen_size = Vec2::from([window.width() as f32, window.height() as f32]);
-        let cursor_position_ndc = (cursor_pos / screen_size) * 2.0 - Vec2::from([1.0, 1.0]);
-        let camera_matrix = global_transform.compute_matrix();
-        let ndc_to_world = camera_matrix * projection_matrix.inverse();
-        let cursor_position = ndc_to_world
-            .transform_point3(cursor_position_ndc.extend(1.0))
-            .truncate();
 
         // Calculationg the distance and checking for overlap does not trigger change detection
         for (mut selectable, transform) in sinks.iter_mut() {

@@ -6,7 +6,7 @@ use bevy_point_selection::SelectionIndicator;
 
 use crate::{
     tilemap::{
-        FaceCoord, FromWorldPosition, IterNeighbors, PositionInWorld, RotateAroundVertex,
+        FromWorldPosition, IterNeighbors, RotateAroundVertex, TileCoord, TransformInWorld,
         TriangleTile, VertexCoord, TRIANGLE_SIDE,
     },
     GameState, SpriteAssets,
@@ -119,9 +119,9 @@ fn rotation_system(
         .get_single()
         .expect("Indicator hasn't been spawned yet!");
 
-    let mut update_set: Vec<(Entity, FaceCoord)> = Vec::new();
+    let mut update_set: Vec<(Entity, TileCoord)> = Vec::new();
     for (eid, _, coord) in triangles.iter_many(selection.selected_set.iter()) {
-        let new_vertex: FaceCoord = if mouse_btn.just_pressed(MouseButton::Left) {
+        let new_vertex: TileCoord = if mouse_btn.just_pressed(MouseButton::Left) {
             // Counter clockwise
             coord.position.rotated_counter_clockwise(selection.anchor)
         } else if mouse_btn.just_pressed(MouseButton::Right) {
@@ -147,7 +147,7 @@ fn rotation_system(
     for (eid, new_vertex) in update_set {
         if let Ok((_, mut transf, mut coord)) = triangles.get_mut(eid) {
             coord.position = new_vertex;
-            *transf = new_vertex.to_world_pos(transf.translation.z);
+            *transf = coord.to_world_pos();
         }
     }
 }
@@ -166,7 +166,7 @@ fn merge_system(
     }
 
     // Also includes some of the changed triangles
-    let all_neighbors: HashMap<FaceCoord, Entity> = changed_triangles
+    let all_neighbors: HashMap<TileCoord, Entity> = changed_triangles
         .iter()
         .flat_map(|(id, p)| p.position.iter_neighbors().zip(std::iter::repeat(id)))
         .collect();

@@ -1,11 +1,21 @@
 use std::{io::Write, path::PathBuf};
 
-use bevy::{ecs::system::CommandQueue, prelude::*, utils::HashMap};
+use bevy::{
+    ecs::system::CommandQueue, prelude::*, render::camera::RenderTarget,
+    sprite::MaterialMesh2dBundle, utils::HashMap,
+};
+use bevy_point_selection::{viewport_to_world, Selectable};
+use rand::Rng;
 
 use crate::{
-    tilemap::{spawn_triangle, FaceCoord, TriangleTile},
-    AssetHandles, GameState,
+    tilemap::{
+        FromWorldPosition, RuneTile, TileCoord, TransformInWorld, TriangleTile, TRIANGLE_SIDE,
+        X_DIR, Y_DIR,
+    },
+    AssetHandles, GameState, SpriteAssets,
 };
+
+const SELECTABLE_RADIUS: f32 = 0.25 * TRIANGLE_SIDE;
 
 pub struct MagnateLevelPlugin;
 
@@ -14,9 +24,91 @@ impl Plugin for MagnateLevelPlugin {
         app.add_system_set(
             SystemSet::on_update(GameState::Next)
                 .with_system(save_system.exclusive_system())
-                .with_system(load_system.exclusive_system()),
+                .with_system(load_system.exclusive_system())
+                .with_system(rune_builder),
         );
     }
+}
+
+fn rune_builder(
+    commands: Commands,
+    keys: Res<Input<KeyCode>>,
+    mouse_btn: Res<Input<MouseButton>>,
+    sprites: Res<SpriteAssets>,
+    windows: Res<Windows>,
+    cam: Query<(&Camera, &GlobalTransform)>,
+) {
+    rune_builder_fallable(commands, keys, mouse_btn, sprites, windows, cam);
+}
+
+fn rune_builder_fallable(
+    mut commands: Commands,
+    keys: Res<Input<KeyCode>>,
+    mouse_btn: Res<Input<MouseButton>>,
+    sprites: Res<SpriteAssets>,
+    windows: Res<Windows>,
+    cam: Query<(&Camera, &GlobalTransform)>,
+) -> Option<()> {
+    if !keys.pressed(KeyCode::LControl) {
+        return None;
+    }
+    if !mouse_btn.just_pressed(MouseButton::Left) {
+        return None;
+    }
+
+    let (camera, cam_transform) = cam.get_single().ok()?;
+    let window_id = match camera.target {
+        RenderTarget::Window(id) => id,
+        _ => return None,
+    };
+    let window = windows.get(window_id)?;
+    let cursor_position = viewport_to_world(camera, cam_transform, window)?;
+
+    let tile = RuneTile {
+        position: FromWorldPosition::from_world_pos(cursor_position),
+    };
+
+    commands.spawn_bundle(SpriteSheetBundle {
+        sprite: TextureAtlasSprite::new(rand::thread_rng().gen_range(0..10)),
+        texture_atlas: sprites.runes.clone(),
+        transform: tile.to_world_pos(),
+        ..Default::default()
+    });
+
+    Some(())
+}
+
+fn spawn_solo_triangle(
+    commands: &mut Commands,
+    coord: TileCoord,
+    mesh: Handle<Mesh>,
+    mat: Handle<ColorMaterial>,
+) -> Entity {
+    let tile = TriangleTile { position: coord };
+    commands
+        .spawn_bundle(MaterialMesh2dBundle {
+            mesh: mesh.into(),
+            transform: tile.to_world_pos(),
+            material: mat,
+            ..default()
+        })
+        .insert(tile)
+        .with_children(|builder| {
+            builder
+                .spawn_bundle(TransformBundle::from_transform(Transform::default()))
+                .insert(Selectable::new(SELECTABLE_RADIUS));
+            builder
+                .spawn_bundle(TransformBundle::from_transform(
+                    Transform::from_translation(X_DIR.extend(0.)),
+                ))
+                .insert(Selectable::new(SELECTABLE_RADIUS));
+            builder
+                .spawn_bundle(TransformBundle::from_transform(
+                    Transform::from_translation(Y_DIR.extend(0.)),
+                ))
+                .insert(Selectable::new(SELECTABLE_RADIUS));
+        })
+        .id()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -123,7 +215,7 @@ fn load_system(world: &mut World) {
 
 pub fn spawn_level(world: &mut World, name: &str) {
     let deser = match read_json(name) {
-        Ok(data) => serde_json::from_str::<Vec<(FaceCoord, Entity)>>(&data),
+        Ok(data) => serde_json::from_str::<Vec<(TileCoord, Entity)>>(&data),
         Err(_) => {
             warn!("Failed to read save file: {}", name);
             return;
@@ -147,7 +239,7 @@ pub fn spawn_level(world: &mut World, name: &str) {
     let mut clumps: HashMap<Entity, Vec<Entity>> = HashMap::new();
 
     for (coord, old_clump_id) in data {
-        let trig = spawn_triangle(
+        let trig = spawn_solo_triangle(
             &mut commands,
             coord,
             assets.triangle_mesh.clone(),
