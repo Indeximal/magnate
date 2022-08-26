@@ -118,7 +118,7 @@ pub fn spawn_rune(
 
     commands
         .spawn_bundle(SpriteSheetBundle {
-            sprite: TextureAtlasSprite::new(rand::thread_rng().gen_range(0..10)),
+            sprite: TextureAtlasSprite::new(rand::thread_rng().gen_range(0..5) * 2),
             texture_atlas: atlas,
             transform: tile.to_world_pos(),
             ..Default::default()

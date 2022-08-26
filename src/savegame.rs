@@ -6,6 +6,7 @@ use bevy::{ecs::system::CommandQueue, prelude::*, utils::HashMap};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    level::LevelInfo,
     level_editor::{spawn_rune, spawn_solo_triangle},
     tilemap::{RuneTile, TriangleTile},
     AssetHandles, GameState, SpriteAssets,
@@ -15,16 +16,6 @@ const LEVELS: &[&'static str] = &[
     include_str!("../levels/0.json"), // Level 0 is empty
     include_str!("../levels/1.json"), // This is the first tutorial level
 ];
-
-pub struct LevelInfo {
-    pub current: usize,
-}
-
-impl Default for LevelInfo {
-    fn default() -> Self {
-        Self { current: 1 }
-    }
-}
 
 pub struct MagnateSaveGamePlugin;
 
