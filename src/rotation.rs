@@ -5,7 +5,7 @@ use bevy::{
 use bevy_point_selection::SelectionIndicator;
 
 use crate::{
-    level::{RotationHint, SoftDespawned},
+    level::{ReloadHint, RotationHint, SoftDespawned},
     tilemap::{
         FromWorldPosition, IterNeighbors, RotateAroundVertex, TileCoord, TransformInWorld,
         TriangleTile, VertexCoord, TRIANGLE_SIDE,
@@ -28,8 +28,11 @@ impl Plugin for MagnateRotationPlugin {
         app.add_system_set(SystemSet::on_enter(GameState::Next).with_system(spawn_selector))
             .add_system_set(
                 SystemSet::on_update(GameState::Next)
-                    .with_system(triangle_selection_system)
-                    .with_system(rotation_system.after(triangle_selection_system))
+                    // The ordering here is important, because the merge system interacts via commands,
+                    // so its changes get picked up by triangle_selection_system only in the next frame,
+                    // but it would happily run in the same frame and miss the changes.
+                    .with_system(triangle_selection_system.before(rotation_system))
+                    .with_system(rotation_system.before(merge_system))
                     .with_system(merge_system),
             );
     }
@@ -58,17 +61,26 @@ fn spawn_selector(mut commands: Commands, assets: Res<SpriteAssets>) {
 /// This system walkes the hierarchy if the vertex selection changed to pre calculate all the
 /// affected triangles.
 fn triangle_selection_system(
-    mut indicator: Query<
-        (&mut SelectedTrianglesState, &SelectionIndicator),
-        Changed<SelectionIndicator>,
-    >,
+    mut indicator: Query<(
+        &mut SelectedTrianglesState,
+        &SelectionIndicator,
+        ChangeTrackers<SelectionIndicator>,
+    )>,
     parents: Query<(&Parent, &GlobalTransform)>,
     children: Query<&Children>,
+    changed_triangles: Query<Entity, Changed<TriangleTile>>,
 ) {
-    let (mut selection_state, indicator) = match indicator.get_single_mut() {
+    let triangles_changed = !changed_triangles.is_empty();
+
+    let (mut selection_state, indicator, selection_change) = match indicator.get_single_mut() {
         Ok(x) => x,
-        Err(_) => return, // only update when the selection changed
+        Err(_) => return,
     };
+
+    // only update when the selection or the triangles changed
+    if !(triangles_changed || selection_change.is_changed()) {
+        return;
+    }
 
     let selected_triggers: Vec<_> = indicator
         .selected_triggers
@@ -172,6 +184,7 @@ fn merge_system(
     all_triangles: Query<(Entity, &TriangleTile)>,
     parents: Query<&Parent>,
     children: Query<&Children>,
+    mut hint: Query<&mut Visibility, With<ReloadHint>>,
 ) {
     let all_changed: HashSet<Entity> = changed_triangles.iter().map(|(id, _)| id).collect();
     if all_changed.is_empty() {
@@ -198,6 +211,15 @@ fn merge_system(
             let p2 = parents.get(other).map(Parent::get);
             if let (Ok(p1), Ok(p2)) = (p1, p2) {
                 merges.insert((p1, p2));
+            }
+        }
+    }
+
+    // Show hint when first merge occurs
+    if !merges.is_empty() {
+        if let Ok(mut vis) = hint.get_single_mut() {
+            if !vis.is_visible {
+                vis.is_visible = true;
             }
         }
     }

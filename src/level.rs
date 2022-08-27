@@ -149,6 +149,8 @@ fn spawn_tutorial(mut commands: Commands, sprites: Res<SpriteAssets>) {
                 scale: Vec3::splat(0.5),
                 ..Default::default()
             },
+            // Will be made visible when first merging two tiles
+            visibility: Visibility { is_visible: false },
             ..Default::default()
         })
         .insert(Name::new("Reload Hint"))

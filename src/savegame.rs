@@ -13,8 +13,13 @@ use crate::{
 };
 
 const LEVELS: &[&'static str] = &[
-    include_str!("../levels/0.json"), // Level 0 is empty
-    include_str!("../levels/1.json"), // This is the first tutorial level
+    include_str!("../levels/0.json"),   // Level 0 is empty
+    include_str!("../levels/1.json"),   // This is the first tutorial level
+    include_str!("../levels/2.json"),   // This is the level with the wall
+    include_str!("../levels/3.json"),   // This is the level where you can't merge
+    include_str!("../levels/4.json"),   // This is the level with the hexagon
+    include_str!("../levels/5.json"),   // This is the level with the hole in the wall
+    include_str!("../levels/end.json"), // This is the end screen
 ];
 
 /// Save and load levels on the fly.
