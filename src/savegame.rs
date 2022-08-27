@@ -6,7 +6,7 @@ use bevy::{ecs::system::CommandQueue, prelude::*, utils::HashMap};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    level::LevelInfo,
+    level::{LevelInfo, ReloadHint, SoftDespawned},
     level_editor::{spawn_immovable, spawn_rune, spawn_solo_triangle},
     tilemap::{Immovable, RuneTile, TileCoord, TriangleTile},
     AssetHandles, GameState, SpriteAssets,
@@ -181,19 +181,36 @@ fn load_system(world: &mut World) {
     let keys = world.resource::<Input<KeyCode>>();
     let is_modifier_down = keys.pressed(KeyCode::LControl);
     if is_modifier_down {
+        // dont load when saving
         return;
     }
     let jump_to_level_key = get_just_pressed_num(keys);
-    let should_reload = keys.just_pressed(KeyCode::R);
+    let manual_reload = keys.just_pressed(KeyCode::R);
 
     let mut lvl = world.resource_mut::<LevelInfo>();
+    let next_level_reload = lvl.should_reload;
 
     if let Some(key) = jump_to_level_key {
         lvl.current = key;
         spawn_level(world, key.to_string().as_str());
-    } else if should_reload {
+    } else if next_level_reload || manual_reload {
         let curr = lvl.current;
         spawn_level(world, curr.to_string().as_str());
+
+        if manual_reload {
+            // Remove hint
+            let mut hint_query =
+                world.query_filtered::<Entity, (With<ReloadHint>, Without<SoftDespawned>)>();
+            let time = world.resource::<Time>().time_since_startup();
+            if let Ok(id) = hint_query.get_single(&world) {
+                world
+                    .entity_mut(id)
+                    .insert(SoftDespawned { death_time: time });
+            }
+        }
+
+        // Reset
+        world.resource_mut::<LevelInfo>().should_reload = false;
     }
 }
 

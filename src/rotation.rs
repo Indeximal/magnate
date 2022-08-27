@@ -5,6 +5,7 @@ use bevy::{
 use bevy_point_selection::SelectionIndicator;
 
 use crate::{
+    level::{RotationHint, SoftDespawned},
     tilemap::{
         FromWorldPosition, IterNeighbors, RotateAroundVertex, TileCoord, TransformInWorld,
         TriangleTile, VertexCoord, TRIANGLE_SIDE,
@@ -39,10 +40,10 @@ impl Plugin for MagnateRotationPlugin {
 fn spawn_selector(mut commands: Commands, assets: Res<SpriteAssets>) {
     commands
         .spawn_bundle(SpriteBundle {
-            texture: assets.circle.clone(),
+            texture: assets.indicator.clone(),
             sprite: Sprite {
-                custom_size: Some(Vec2::splat(0.4 * TRIANGLE_SIDE)),
-                color: Color::rgb_u8(87, 207, 255),
+                custom_size: Some(Vec2::splat(0.6 * TRIANGLE_SIDE)),
+                color: Color::rgba(1., 1., 1., 0.7),
                 ..Default::default()
             },
             transform: Transform::from_xyz(0., 0., 900.),
@@ -110,6 +111,9 @@ fn rotation_system(
     mouse_btn: Res<Input<MouseButton>>,
     selection: Query<&SelectedTrianglesState>,
     mut triangles: Query<(Entity, &mut Transform, &mut TriangleTile)>,
+    mut commands: Commands,
+    hint: Query<Entity, (With<RotationHint>, Without<SoftDespawned>)>,
+    time: Res<Time>,
 ) {
     if !mouse_btn.any_just_pressed([MouseButton::Left, MouseButton::Right]) {
         return;
@@ -141,6 +145,14 @@ fn rotation_system(
                 warn!("Something is in the way!");
                 return;
             }
+        }
+    }
+
+    if let Ok(id) = hint.get_single() {
+        if !update_set.is_empty() {
+            commands.entity(id).insert(SoftDespawned {
+                death_time: time.time_since_startup(),
+            });
         }
     }
 

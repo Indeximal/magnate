@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
@@ -6,7 +8,7 @@ use bevy::{
 
 use crate::{
     savegame::spawn_level,
-    tilemap::{RuneTile, TileCoord, TriangleTile, SQRT3_HALF, TRIANGLE_SIDE},
+    tilemap::{RuneTile, TileCoord, TransformInWorld, TriangleTile, SQRT3_HALF, TRIANGLE_SIDE},
     AssetHandles, GameState, SpriteAssets,
 };
 
@@ -14,30 +16,76 @@ pub struct MagnateLevelPlugin;
 
 impl Plugin for MagnateLevelPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_update(GameState::Next).with_system(rune_system))
-            .add_system_set(
-                SystemSet::on_enter(GameState::Next).with_system(initial_load.exclusive_system()),
-            )
-            .init_resource::<LevelInfo>();
+        app.add_system_set(
+            SystemSet::on_update(GameState::Next)
+                .with_system(rune_system)
+                .with_system(soft_despawn)
+                .with_system(scale_animation),
+        )
+        .add_system_set(
+            SystemSet::on_enter(GameState::Next)
+                .with_system(initial_load.exclusive_system())
+                .with_system(spawn_tutorial),
+        )
+        .init_resource::<LevelInfo>();
     }
 }
 
+#[derive(Component, Default, Debug, Clone)]
+pub struct ScaleAnimation {
+    pub frequency: f32,
+    pub amplitude: f32,
+}
+
+#[derive(Component, Default, Debug, Clone)]
+pub struct SoftDespawned {
+    pub death_time: Duration,
+}
+
+#[derive(Component, Default, Debug, Clone)]
+pub struct RotationHint;
+
+#[derive(Component, Default, Debug, Clone)]
+pub struct ReloadHint;
+
 pub struct LevelInfo {
     pub current: usize,
+    pub win_animation_progress: Option<f32>,
+    pub should_reload: bool,
 }
 
 impl Default for LevelInfo {
     fn default() -> Self {
-        Self { current: 1 }
+        Self {
+            current: 1,
+            win_animation_progress: None,
+            should_reload: false,
+        }
     }
 }
 
 fn rune_system(
-    mut runes: Query<(&RuneTile, &mut TextureAtlasSprite)>,
+    mut runes: Query<(&RuneTile, &mut TextureAtlasSprite, &mut Transform)>,
     added_runes: Query<Entity, Added<RuneTile>>,
     changed_triangles: Query<Entity, Changed<TriangleTile>>,
     all_triangles: Query<&TriangleTile>,
+    mut level: ResMut<LevelInfo>,
+    time: Res<Time>,
 ) {
+    if let Some(progress) = level.win_animation_progress {
+        if progress >= 0.6 {
+            level.current += 1;
+            level.should_reload = true;
+            level.win_animation_progress = None;
+        } else {
+            for (_, _, mut transf) in runes.iter_mut() {
+                transf.scale *= 1. + progress;
+            }
+            level.win_animation_progress = Some(progress + time.delta_seconds());
+        }
+        return;
+    }
+
     if changed_triangles.is_empty() && added_runes.is_empty() {
         return;
     }
@@ -45,7 +93,7 @@ fn rune_system(
 
     let mut total_runes = 0;
     let mut fulfilled_runes = 0;
-    for (rune, mut sprite) in runes.iter_mut() {
+    for (rune, mut sprite, _) in runes.iter_mut() {
         if all_triangles.contains(&rune.position) {
             fulfilled_runes += 1;
             // round to odd
@@ -58,8 +106,75 @@ fn rune_system(
     }
 
     if total_runes > 0 && total_runes == fulfilled_runes {
-        info!("You've won!");
+        level.win_animation_progress = Some(0.);
     }
+}
+
+fn soft_despawn(
+    mut commands: Commands,
+    mut affected: Query<(Entity, &mut Transform, &SoftDespawned)>,
+    time: Res<Time>,
+) {
+    let death_span = 1.;
+    for (id, mut transf, anim) in affected.iter_mut() {
+        let diff_time = (time.time_since_startup() - anim.death_time).as_secs_f32();
+        if diff_time < death_span {
+            let scale_factor = 1. - diff_time / death_span;
+            transf.scale *= Vec3::splat(scale_factor);
+        } else {
+            commands.entity(id).despawn_recursive();
+        }
+    }
+}
+
+fn scale_animation(mut affected: Query<(&mut Transform, &ScaleAnimation)>, time: Res<Time>) {
+    for (mut transf, anim) in affected.iter_mut() {
+        let scale = 1.
+            + f32::sin(
+                time.time_since_startup().as_secs_f32()
+                    * anim.frequency
+                    * 2.
+                    * std::f32::consts::PI,
+            ) * anim.amplitude;
+        transf.scale = Vec3::splat(scale);
+    }
+}
+
+fn spawn_tutorial(mut commands: Commands, sprites: Res<SpriteAssets>) {
+    commands
+        .spawn_bundle(SpriteBundle {
+            texture: sprites.reload_hint.clone(),
+            transform: Transform {
+                translation: Vec3::new(400., 300., 900.),
+                scale: Vec3::splat(0.5),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Name::new("Reload Hint"))
+        .insert(ReloadHint);
+
+    commands
+        .spawn_bundle(SpriteBundle {
+            texture: sprites.rotate_hint.clone(),
+            sprite: Sprite {
+                custom_size: Some(Vec2::splat(0.4 * TRIANGLE_SIDE)),
+                color: Color::rgba_u8(199, 172, 252, 230),
+                ..Default::default()
+            },
+            transform: {
+                let mut transf = crate::tilemap::VertexCoord::new(0, 1).to_world_pos();
+                transf.translation.z = 800.;
+                transf
+            },
+            ..Default::default()
+        })
+        .insert(ScaleAnimation {
+            frequency: 0.2,
+            amplitude: 0.13,
+        })
+        .insert(Name::new("Rotation Hint"))
+        .insert(RotationHint);
 }
 
 /// Spawn the first level

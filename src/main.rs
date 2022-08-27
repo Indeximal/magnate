@@ -4,11 +4,11 @@
 //! Rotate triangles to light up the runes, but beware that they're inseperarable once touching.
 //!
 //! ## TODO:
-//! - Rune logic
-//!     - next level when all done, with visual clue
 //! - Rotation Ghost
-//! - Particles?
+//! - Some Levels
+//!     - Game Ending
 //!
+//! - Particles?
 //! - Audio?
 //! - Animations?
 //! - Different Colors?
@@ -40,8 +40,12 @@ const BORDER_COORDS: &'static str = include_str!("../assets/border.json");
 
 #[derive(AssetCollection)]
 struct SpriteAssets {
-    #[asset(path = "circle.png")]
-    circle: Handle<Image>,
+    #[asset(path = "indicator.png")]
+    indicator: Handle<Image>,
+    #[asset(path = "rotate_hint.png")]
+    rotate_hint: Handle<Image>,
+    #[asset(path = "reload_hint.png")]
+    reload_hint: Handle<Image>,
     #[asset(path = "background.png")]
     background: Handle<Image>,
     #[asset(path = "ruby_triangle.png")]
