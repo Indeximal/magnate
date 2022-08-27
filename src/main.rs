@@ -6,11 +6,9 @@
 //! ## TODO:
 //! - Rune logic
 //!     - next level when all done, with visual clue
-//!
-//! - Non Moveables at the boundaries
-//!
 //! - Rotation Ghost
 //! - Particles?
+//!
 //! - Audio?
 //! - Animations?
 //! - Different Colors?
@@ -22,6 +20,7 @@ use level::MagnateLevelPlugin;
 use level_editor::MagnateLevelEditorPlugin;
 use rotation::MagnateRotationPlugin;
 use savegame::MagnateSaveGamePlugin;
+use tilemap::{TileCoord, TriangleTile};
 
 pub const BG_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
 
@@ -37,6 +36,8 @@ pub enum GameState {
     Next,
 }
 
+const BORDER_COORDS: &'static str = include_str!("../assets/border.json");
+
 #[derive(AssetCollection)]
 struct SpriteAssets {
     #[asset(path = "circle.png")]
@@ -45,6 +46,8 @@ struct SpriteAssets {
     background: Handle<Image>,
     #[asset(path = "ruby_triangle.png")]
     ruby_triangle: Handle<Image>,
+    #[asset(path = "grey_triangle.png")]
+    grey_triangle: Handle<Image>,
     #[asset(texture_atlas(
         tile_size_x = 128.,
         tile_size_y = 128.,
@@ -60,6 +63,7 @@ struct SpriteAssets {
 struct AssetHandles {
     triangle_mesh: Handle<Mesh>,
     triangle_material: Handle<ColorMaterial>,
+    immovable_material: Handle<ColorMaterial>,
 }
 
 fn main() {
@@ -115,4 +119,14 @@ fn spawn_background(mut commands: Commands, assets: Res<SpriteAssets>) {
             ..Default::default()
         })
         .insert(Name::new("Background"));
+
+    // Spawn border immovables
+    let immovables: Vec<TileCoord> =
+        serde_json::from_str(BORDER_COORDS).expect("Border json should be formatted correctly!");
+
+    for coord in immovables {
+        let tile = TriangleTile { position: coord };
+        // The Transform is just a hotfix so that the collision check system doesn't need to be rewritten
+        commands.spawn().insert(tile).insert(Transform::default());
+    }
 }

@@ -137,6 +137,7 @@ fn rotation_system(
         // collision check
         for (other_id, _, other) in triangles.iter() {
             if !selection.selected_set.contains(&other_id) && new_vertex == other.position {
+                // todo: visual indicator
                 warn!("Something is in the way!");
                 return;
             }

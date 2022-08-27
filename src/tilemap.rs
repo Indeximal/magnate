@@ -37,6 +37,9 @@ pub struct TriangleTile {
     pub position: TileCoord,
 }
 
+#[derive(Component, Default, Debug, Clone)]
+pub struct Immovable;
+
 pub trait TransformInWorld {
     fn to_world_pos(&self) -> Transform;
 }

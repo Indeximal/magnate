@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     level::LevelInfo,
-    level_editor::{spawn_rune, spawn_solo_triangle},
-    tilemap::{RuneTile, TriangleTile},
+    level_editor::{spawn_immovable, spawn_rune, spawn_solo_triangle},
+    tilemap::{Immovable, RuneTile, TileCoord, TriangleTile},
     AssetHandles, GameState, SpriteAssets,
 };
 
@@ -17,6 +17,16 @@ const LEVELS: &[&'static str] = &[
     include_str!("../levels/1.json"), // This is the first tutorial level
 ];
 
+/// Save and load levels on the fly.
+/// Press a number `0`-`9` to load a level.
+/// Press `Left Control` + a number `0`-`9` to save as a level.
+///
+/// Note: If a level is built-in, then loading a level will always load the built-in level
+/// and not the saved one. Built-in Level 0 is garanteed to be empty, the game starts with
+/// level 1.
+///
+/// On PC the levels are saved and loaded from `./levels`. On the web the are stored
+/// in `LocalStorage`.
 pub struct MagnateSaveGamePlugin;
 
 impl Plugin for MagnateSaveGamePlugin {
@@ -33,6 +43,7 @@ impl Plugin for MagnateSaveGamePlugin {
 #[derive(Serialize, Deserialize)]
 struct SaveGame {
     triangles: Vec<(TriangleTile, Entity)>,
+    immovables: Vec<TileCoord>,
     runes: Vec<RuneTile>,
 }
 
@@ -44,13 +55,23 @@ pub fn save_level(world: &mut World, as_name: &str) {
         .map(|(t, p)| (t.clone(), p.get()))
         .collect::<Vec<(TriangleTile, Entity)>>();
 
+    let mut immov_query = world.query_filtered::<&TriangleTile, With<Immovable>>();
+    let immovables = immov_query
+        .iter(world)
+        .map(|t| t.position)
+        .collect::<Vec<TileCoord>>();
+
     let mut runes_query = world.query::<&RuneTile>();
     let runes = runes_query
         .iter(world)
         .map(|t| t.clone())
         .collect::<Vec<RuneTile>>();
 
-    let save = SaveGame { triangles, runes };
+    let save = SaveGame {
+        triangles,
+        runes,
+        immovables,
+    };
 
     let ser = serde_json::to_string(&save);
 
@@ -114,6 +135,16 @@ pub fn spawn_level(world: &mut World, name: &str) {
             .push_children(&children);
     }
 
+    // Spawn immovables
+    for coord in save.immovables {
+        spawn_immovable(
+            &mut commands,
+            coord,
+            assets.triangle_mesh.clone(),
+            assets.immovable_material.clone(),
+        );
+    }
+
     // Spawn runes
     let sprites = world.resource::<SpriteAssets>();
     for rune in save.runes {
@@ -129,6 +160,12 @@ pub fn clear_world(world: &mut World) {
     let current_clumps: Vec<Entity> = current_tris.iter(world).map(|p| p.get()).collect();
     for clump in current_clumps {
         despawn_with_children_recursive(world, clump);
+    }
+
+    let mut current_immovables = world.query_filtered::<Entity, With<Immovable>>();
+    let current_immovables: Vec<Entity> = current_immovables.iter(world).collect();
+    for immovable in current_immovables {
+        despawn_with_children_recursive(world, immovable);
     }
 
     let mut current_runes = world.query_filtered::<Entity, With<RuneTile>>();

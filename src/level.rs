@@ -66,19 +66,27 @@ fn rune_system(
 fn initial_load(world: &mut World) {
     // maybe use asset loader lib?
     //  see https://github.com/NiklasEi/bevy_asset_loader/blob/main/bevy_asset_loader/examples/custom_dynamic_assets.rs
-    let sprite = world.resource::<SpriteAssets>().ruby_triangle.clone();
+    let ruby_sprite = world.resource::<SpriteAssets>().ruby_triangle.clone();
+    let grey_sprite = world.resource::<SpriteAssets>().grey_triangle.clone();
     let meshes = world
         .resource_mut::<Assets<Mesh>>()
         .add(create_triangle_mesh(TRIANGLE_SIDE));
-    let materials = world
+    let ruby_material = world
         .resource_mut::<Assets<ColorMaterial>>()
         .add(ColorMaterial {
             color: Color::WHITE,
-            texture: Some(sprite),
+            texture: Some(ruby_sprite),
+        });
+    let grey_material = world
+        .resource_mut::<Assets<ColorMaterial>>()
+        .add(ColorMaterial {
+            color: Color::WHITE,
+            texture: Some(grey_sprite),
         });
     let assets = AssetHandles {
         triangle_mesh: meshes,
-        triangle_material: materials,
+        triangle_material: ruby_material,
+        immovable_material: grey_material,
     };
     // This needs to happen before spawn_level
     world.insert_resource(assets);
