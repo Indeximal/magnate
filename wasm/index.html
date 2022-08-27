@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<script type="module">
+    import init from './game-magnate.js'
+    init()
+</script>
+
+<body style="margin: 0px;">
+    <script>
+        // Prevent right clicks from opening the context menu
+        document.body.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    </script>
+</body>
+
+</html>

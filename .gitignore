@@ -1,2 +1,4 @@
 /target
-/wasm
+/wasm/*.wasm
+/wasm/*.js
+/release
