@@ -21,6 +21,7 @@ const LEVELS: &[&'static str] = &[
     include_str!("../levels/5-circle-berni-4.json"),
     include_str!("../levels/6-nook-berni-5.json"),
     include_str!("../levels/7-wall-hole.json"),
+    include_str!("../levels/end.json"),
 ];
 
 /// Save and load levels on the fly.

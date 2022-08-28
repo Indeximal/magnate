@@ -4,10 +4,13 @@
 //! Rotate triangles to light up the runes, but beware that they're inseperarable once touching.
 //!
 //! ## TODO:
-//! - Rotation Ghost
 //! - Allow more levels
+//! - Rotation Ghost ?
+//! - Merge indication
+//! - Block indication
+//!     Jiggle cursor
 //!
-//! - Merge/Block indication
+//! - Undo??
 //!
 //! - Particles?
 //! - Audio?

@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 # Platform dependent dynamic linking feature, doesn't work
 # [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-bevy = { version = "0.8", features = ["dynamic"] }
-# bevy = "0.8"
+#bevy = { version = "0.8", features = ["dynamic"] }
+bevy = "0.8"
 bevy_asset_loader = { version = "0.12", features = ["2d"] }
 bevy-point-selection = { path = "./bevy-point-selection"}
 serde = "1.0"
