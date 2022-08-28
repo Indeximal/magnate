@@ -1,0 +1,106 @@
+{
+    "triangles": [
+        [
+            {
+                "position": [
+                    [
+                        -3,
+                        3
+                    ],
+                    "PointingDown"
+                ]
+            },
+            64
+        ],
+        [
+            {
+                "position": [
+                    [
+                        0,
+                        -1
+                    ],
+                    "PointingUp"
+                ]
+            },
+            5
+        ],
+        [
+            {
+                "position": [
+                    [
+                        0,
+                        -1
+                    ],
+                    "PointingDown"
+                ]
+            },
+            5
+        ]
+    ],
+    "immovables": [
+        [
+            [
+                -1,
+                0
+            ],
+            "PointingDown"
+        ],
+        [
+            [
+                0,
+                0
+            ],
+            "PointingDown"
+        ],
+        [
+            [
+                -2,
+                1
+            ],
+            "PointingUp"
+        ],
+        [
+            [
+                -1,
+                1
+            ],
+            "PointingUp"
+        ],
+        [
+            [
+                0,
+                1
+            ],
+            "PointingDown"
+        ]
+    ],
+    "runes": [
+        {
+            "position": [
+                [
+                    -1,
+                    1
+                ],
+                "PointingDown"
+            ]
+        },
+        {
+            "position": [
+                [
+                    0,
+                    0
+                ],
+                "PointingUp"
+            ]
+        },
+        {
+            "position": [
+                [
+                    -1,
+                    0
+                ],
+                "PointingUp"
+            ]
+        }
+    ]
+}

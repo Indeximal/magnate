@@ -1,0 +1,120 @@
+{
+    "triangles": [
+        [
+            {
+                "position": [
+                    [
+                        -5,
+                        4
+                    ],
+                    "PointingDown"
+                ]
+            },
+            59
+        ],
+        [
+            {
+                "position": [
+                    [
+                        -5,
+                        4
+                    ],
+                    "PointingUp"
+                ]
+            },
+            59
+        ],
+        [
+            {
+                "position": [
+                    [
+                        -4,
+                        4
+                    ],
+                    "PointingUp"
+                ]
+            },
+            58
+        ],
+        [
+            {
+                "position": [
+                    [
+                        -4,
+                        3
+                    ],
+                    "PointingUp"
+                ]
+            },
+            59
+        ]
+    ],
+    "immovables": [
+        [
+            [
+                -1,
+                -1
+            ],
+            "PointingUp"
+        ],
+        [
+            [
+                -1,
+                1
+            ],
+            "PointingUp"
+        ],
+        [
+            [
+                1,
+                -1
+            ],
+            "PointingUp"
+        ],
+        [
+            [
+                0,
+                1
+            ],
+            "PointingDown"
+        ]
+    ],
+    "runes": [
+        {
+            "position": [
+                [
+                    -1,
+                    1
+                ],
+                "PointingDown"
+            ]
+        },
+        {
+            "position": [
+                [
+                    -1,
+                    0
+                ],
+                "PointingDown"
+            ]
+        },
+        {
+            "position": [
+                [
+                    0,
+                    0
+                ],
+                "PointingDown"
+            ]
+        },
+        {
+            "position": [
+                [
+                    0,
+                    0
+                ],
+                "PointingUp"
+            ]
+        }
+    ]
+}
