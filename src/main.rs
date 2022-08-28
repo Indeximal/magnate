@@ -5,8 +5,9 @@
 //!
 //! ## TODO:
 //! - Rotation Ghost
-//! - Some Levels
-//!     - Game Ending
+//! - Allow more levels
+//!
+//! - Merge/Block indication
 //!
 //! - Particles?
 //! - Audio?
@@ -62,6 +63,9 @@ struct SpriteAssets {
     ))]
     #[asset(path = "rune_sheet.png")]
     runes: Handle<TextureAtlas>,
+
+    #[asset(path = "FirstTimeWriting-CC0.ttf")]
+    font: Handle<Font>,
 }
 
 struct AssetHandles {
@@ -123,6 +127,19 @@ fn spawn_background(mut commands: Commands, assets: Res<SpriteAssets>) {
             ..Default::default()
         })
         .insert(Name::new("Background"));
+
+    commands.spawn_bundle(Text2dBundle {
+        text: Text::from_section(
+            "1",
+            TextStyle {
+                font: assets.font.clone(),
+                font_size: 50.,
+                color: Color::rgb_u8(148, 141, 126),
+            },
+        ),
+        transform: Transform::from_xyz(460., 0., 550.),
+        ..Default::default()
+    });
 
     // Spawn border immovables
     let immovables: Vec<TileCoord> =

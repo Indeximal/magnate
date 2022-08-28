@@ -157,6 +157,14 @@ pub fn spawn_level(world: &mut World, name: &str) {
     }
 
     command_queue.apply(world);
+
+    // Update level name
+    let mut text = world.query::<&mut Text>();
+    if let Ok(mut text) = text.get_single_mut(world) {
+        if let Some(mut section) = text.sections.first_mut() {
+            section.value = String::from(name);
+        }
+    }
 }
 
 pub fn clear_world(world: &mut World) {
